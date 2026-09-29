@@ -6,6 +6,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: write
+
 env:
   ANDROID_HOME: /usr/local/lib/android/sdk
 
@@ -28,4 +31,19 @@ jobs:
           gradle-version: '8.10'
 
       - name: Run core tests
-        run: gradle :core:domain:test :core:state:test :core:action:test :core:engine:test --stacktrace
+        run: |
+          set +e
+          gradle :core:domain:test :core:state:test :core:action:test :core:engine:test --console=plain --stacktrace > citestoutput.txt 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            echo "### Core tests failed. Gradle output tail" >> $GITHUB_STEP_SUMMARY
+            echo '~~~' >> $GITHUB_STEP_SUMMARY
+            tail -n 200 citestoutput.txt >> $GITHUB_STEP_SUMMARY
+            echo '~~~' >> $GITHUB_STEP_SUMMARY
+            git config user.name "naze"
+            git config user.email "nueexoly@gmail.com"
+            git add citestoutput.txt
+            git commit -m "chore: record ci test output for the failed run"
+            git push origin "HEAD:refs/heads/buildlogs" --force
+            exit 1
+          fi
