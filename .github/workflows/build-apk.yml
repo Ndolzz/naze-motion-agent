@@ -9,6 +9,9 @@ on:
 env:
   ANDROID_HOME: /usr/local/lib/android/sdk
 
+permissions:
+  contents: read
+
 jobs:
   apk:
     name: Debug APK
@@ -36,12 +39,27 @@ jobs:
           gradle :app:assembleDebug --console=plain --stacktrace > gradleoutput.txt 2>&1
           status=$?
           if [ $status -ne 0 ]; then
-            echo "### Gradle build failed. Last 300 lines of output" >> $GITHUB_STEP_SUMMARY
-            echo '~~~' >> $GITHUB_STEP_SUMMARY
-            tail -n 300 gradleoutput.txt >> $GITHUB_STEP_SUMMARY
-            echo '~~~' >> $GITHUB_STEP_SUMMARY
+            tail -n 200 gradleoutput.txt > gradletail.txt
             exit 1
           fi
+
+      - name: Report build failure on the commit
+        if: failure()
+        run: |
+          python3 - <<'PYEOF'
+          import json
+          body = open('gradletail.txt').read()
+          payload = {"body": "Debug APK build failed. Last 200 lines of Gradle output:\n\n~~~\n" + body + "\n~~~"}
+          with open('commentpayload.json', 'w') as f:
+              json.dump(payload, f)
+          PYEOF
+          curl -s -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d @commentpayload.json \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments" || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
