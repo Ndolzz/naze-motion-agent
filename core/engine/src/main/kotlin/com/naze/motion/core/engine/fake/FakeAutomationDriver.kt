@@ -1,13 +1,13 @@
 package com.naze.motion.core.engine.fake
 
+import com.naze.motion.core.action.AccessibilityTreeSnapshot
 import com.naze.motion.core.action.ActionQuery
 import com.naze.motion.core.action.AutomationDriver
 import com.naze.motion.core.action.NodeHandle
-import com.naze.motion.core.action.ResolvedTarget
 import com.naze.motion.core.action.ResolutionMethod
+import com.naze.motion.core.action.ResolvedTarget
 import com.naze.motion.core.action.ScrollDirection
 import com.naze.motion.core.action.ScreenCapture
-import com.naze.motion.core.action.AccessibilityTreeSnapshot
 import com.naze.motion.core.action.TargetResolver
 
 /** Deterministic node handle for tests and previews. */
@@ -50,9 +50,9 @@ class FakeAutomationDriver : AutomationDriver {
         return FakeNodeHandle(query.resourceId, query.text, query.contentDescription, true)
     }
 
-    override suspend fun click(node: NodeHandle): Boolean = boolCall("click") { clickFailuresRemaining }
+    override suspend fun click(node: NodeHandle): Boolean = scripted("click", clickFailuresRemaining) { clickFailuresRemaining-- }
 
-    override suspend fun longClick(node: NodeHandle): Boolean = boolCall("longClick") { longClickFailuresRemaining }
+    override suspend fun longClick(node: NodeHandle): Boolean = scripted("longClick", longClickFailuresRemaining) { longClickFailuresRemaining-- }
 
     override suspend fun swipe(startX: Int, startY: Int, endX: Int, endY: Int, durationMs: Long): Boolean {
         calls.add("swipe")
@@ -64,7 +64,7 @@ class FakeAutomationDriver : AutomationDriver {
         return true
     }
 
-    override suspend fun typeText(text: String): Boolean = boolCall("typeText") { typeTextFailuresRemaining }
+    override suspend fun typeText(text: String): Boolean = scripted("typeText", typeTextFailuresRemaining) { typeTextFailuresRemaining-- }
 
     override suspend fun pressBack(): Boolean {
         calls.add("pressBack")
@@ -108,15 +108,19 @@ class FakeAutomationDriver : AutomationDriver {
 
     override fun isConnected(): Boolean = connected
 
-    private inline fun boolCall(name: String, failures: () -> Int): Boolean {
+    private fun scripted(name: String, failuresRemaining: Int, consume: () -> Unit): Boolean {
         calls.add(name)
+        if (failuresRemaining > 0) {
+            consume()
+            return false
+        }
         return true
     }
 }
 
 /**
  * FakeTargetResolver: deterministic resolution with an optional scripted
- * failure count for target-not-found retry tests.
+ * failure count for target not found retry tests.
  */
 class FakeTargetResolver : TargetResolver {
     var failuresRemaining = 0

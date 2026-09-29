@@ -5,7 +5,6 @@ import com.naze.motion.core.domain.ActionPlan
 import com.naze.motion.core.domain.ActionTarget
 import com.naze.motion.core.domain.ActionType
 import com.naze.motion.core.domain.AgentCancellationToken
-import com.naze.motion.core.domain.AgentError
 import com.naze.motion.core.domain.ErrorCode
 import com.naze.motion.core.domain.RetryPolicy
 import com.naze.motion.core.domain.TargetApplication
@@ -69,7 +68,6 @@ class ExecutionEngineTest {
         val summary = run(ActionPlan(listOf(openApp("a1"), tap("a2"), tap("a3"))), driver)
         assertEquals(ExecutionOutcome.COMPLETED, summary.outcome)
         assertEquals(listOf("a1", "a2", "a3"), summary.completedActionIds)
-        assertEquals(AgentState.COMPLETED, machine().let { AgentStateMachine(AgentState.COMPLETED).current })
     }
 
     @Test fun happyPathDrivesMachineToCompleted() {

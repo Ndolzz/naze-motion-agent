@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -28,4 +28,4 @@ jobs:
           gradle-version: '8.10'
 
       - name: Run core tests
-        run: gradle :core:domain:test :core:state:test :core:action:test --stacktrace
+        run: gradle :core:domain:test :core:state:test :core:action:test :core:engine:test --stacktrace
