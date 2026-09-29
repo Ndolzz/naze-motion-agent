@@ -52,7 +52,8 @@ private class Screenshot(
 ) : ScreenCapture
 
 /**
- * AutomationDriver on top of MotionAccessibilityService (NMA-ACCESS-001/002).
+ * AutomationDriver on top of MotionAccessibili
+tyService (NMA-ACCESS-001/002).
  * All node interaction happens on the main dispatcher; failures return false
  * or null as typed results, never crash (NMA-ACCESS-006).
  */
@@ -97,7 +98,8 @@ class AndroidAccessibilityDriver : AutomationDriver {
     override suspend fun click(node: NodeHandle): Boolean = withContext(Dispatchers.Main) {
         when (node) {
             is NodeHandleImpl -> node.node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            is CoordinateNodeHandle -> dispatchTap(node.x, node.y)
+ 
+           is CoordinateNodeHandle -> dispatchTap(node.x, node.y)
             else -> false
         }
     }
@@ -136,7 +138,8 @@ class AndroidAccessibilityDriver : AutomationDriver {
         scrollable.performAction(action)
     }
 
-    override suspend fun typeText(text: String): Boolean = withContext(Dispatchers.Main) {
+    override suspend fun typeText(tex
+t: String): Boolean = withContext(Dispatchers.Main) {
         val svc = service ?: return@withContext false
         val root = svc.rootInActiveWindow ?: return@withContext false
         val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return@withContext false
@@ -168,19 +171,23 @@ class AndroidAccessibilityDriver : AutomationDriver {
         val svc = service ?: return@withContext null
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return@withContext null
         try {
-            // API 34 signature: takeScreenshot(displayId, executor, TakeScreenshotCallback).
-            val result = suspendCancellableCoroutine<AccessibilityService.ScreenshotResult> { cont ->
+            // API 34: takeScreenshot(displayId, executor, TakeScreenshotCallback interface).
+            val result = suspendCancellableCoroutine<AccessibilityService.ScreenshotResult?> { cont ->
                 svc.takeScreenshot(
                     Display.DEFAULT_DISPLAY,
                     svc.mainExecutor,
-                    object : AccessibilityService.TakeScreenshotCallback() {
-                        override fun onScreenshot(screenshot: AccessibilityService.ScreenshotResult) {
+                    object : AccessibilityService.TakeScreenshotCallback {
+                        override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
                             cont.resume(screenshot)
+                        }
+
+                        override fun onFailure(errorCode: Int) {
+                            cont.resume(null)
                         }
                     },
                 )
             }
-            val buffer = result.hardwareBuffer ?: return@withContext null
+            val buffer = result?.hardwareBuffer ?: return@withContext null
             val bitmap = Bitmap.createBitmap(buffer)
             val width = bitmap.width
             val height = bitmap.height
@@ -223,7 +230,8 @@ class AndroidAccessibilityDriver : AutomationDriver {
     }
 
     private suspend fun dispatchLongPress(x: Int, y: Int): Boolean {
-        val path = Path()
+        val pat
+h = Path()
         path.moveTo(x.toFloat(), y.toFloat())
         val stroke = GestureDescription.StrokeDescription(path, 0L, 800L)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
