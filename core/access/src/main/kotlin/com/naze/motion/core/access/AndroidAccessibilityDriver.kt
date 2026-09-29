@@ -52,8 +52,7 @@ private class Screenshot(
 ) : ScreenCapture
 
 /**
- * Automatio
-nDriver on top of MotionAccessibilityService (NMA-ACCESS-001/002).
+ * AutomationDriver on top of MotionAccessibilityService (NMA-ACCESS-001/002).
  * All node interaction happens on the main dispatcher; failures return false
  * or null as typed results, never crash (NMA-ACCESS-006).
  */
@@ -97,8 +96,7 @@ class AndroidAccessibilityDriver : AutomationDriver {
 
     override suspend fun click(node: NodeHandle): Boolean = withContext(Dispatchers.Main) {
         when (node) {
-            is NodeHandleImpl -> node.node.performAction(Ac
-cessibilityNodeInfo.ACTION_CLICK)
+            is NodeHandleImpl -> node.node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
             is CoordinateNodeHandle -> dispatchTap(node.x, node.y)
             else -> false
         }
@@ -138,8 +136,7 @@ cessibilityNodeInfo.ACTION_CLICK)
         scrollable.performAction(action)
     }
 
-  
-  override suspend fun typeText(text: String): Boolean = withContext(Dispatchers.Main) {
+    override suspend fun typeText(text: String): Boolean = withContext(Dispatchers.Main) {
         val svc = service ?: return@withContext false
         val root = svc.rootInActiveWindow ?: return@withContext false
         val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return@withContext false
@@ -229,8 +226,7 @@ cessibilityNodeInfo.ACTION_CLICK)
         val path = Path()
         path.moveTo(x.toFloat(), y.toFloat())
         val stroke = GestureDescription.StrokeDescription(path, 0L, 800L)
-        val gesture = GestureDescrip
-tion.Builder().addStroke(stroke).build()
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
         return dispatchGesture(gesture)
     }
 
