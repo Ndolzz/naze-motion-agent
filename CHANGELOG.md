@@ -1,23 +1,29 @@
 # Changelog
 
+## [0.3.0] PHASE 10 UI PREVIEW
+### Added
+- Precision Studio design system: NazeColors, NazeTypography, NazeSpacing,
+  NazeShapes, NazeAnimations tokens.
+- Reusable component library: buttons, cards, sections, text field,
+  status label, status dot, divider, empty state, action timeline,
+  action row, monospace log, progress.
+- Screens: Agent dashboard, Planning, Execution console, History,
+  Workflow detail, Settings, plus error and recovery panels.
+- Compact navigation: top bar plus tab row (Agent, Workflows, History, Settings).
+- Geometric N mark launcher icon.
+- Sealed AgentUiState model. No overlapping booleans.
+- Screens render from mock data only. Engine wiring arrives with Phase 5.
+
 ## [0.2.0] PHASE 4
 ### Added
-- AutomationDriver interface (find, click, swipe, typeText, launchApp, and more).
-- TargetResolver abstraction with explicit resolution priority.
-- ActionValidator with per type rules and path traversal protection.
-- 14 action handlers using the strategy pattern (no giant conditionals).
-- ActionDispatcher with registry based routing and typed rejection of
-  unknown or invalid actions.
-- 15 unit tests covering valid, invalid, unknown, cancellation, disconnect,
-  and target not found paths.
-- CI now runs core action tests.
+- AutomationDriver interface, TargetResolver abstraction, ActionValidator.
+- 14 action handlers using the strategy pattern.
+- ActionDispatcher with registry based routing.
+- 15 unit tests. CI runs core action tests.
 
 ## [0.1.0] PHASE 0 to 3
 ### Added
-- Repository skeleton, docs index, architecture overview.
-- Phase 1 specifications: PRODUCT, ARCHITECTURE, DOMAIN, ACTION,
-  STATE_MACHINE, ACCESSIBILITY, AI_AGENT, ERROR, SECURITY, TEST + ROADMAP.
-- Domain model: AgentTask, Action, ActionPlan, ActionResult, Observation,
-  VerificationResult, ExecutionContext, RetryPolicy, TargetApplication.
-- Explicit agent state machine with legal transition validation.
+- Repository skeleton and documentation.
+- Phase 1 specifications across ten documents plus roadmap.
+- Domain model and agent state machine with legal transition validation.
 - Unit tests for domain invariants and state transitions.

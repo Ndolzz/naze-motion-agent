@@ -12,5 +12,8 @@
 | 7 | Accessibility service, AndroidAccessibilityDriver, ObservationProvider | planned |
 | 8 | AlightMotionAdapter | planned |
 | 9 | AI planner + provider abstraction + output validation | planned |
-| 10 | Compose dashboard UI | planned |
+| 10 | Precision Studio UI with mock state | done (mock preview) |
 | 11 | End to end flow | planned |
+
+Phase 10 note: screens render from mock state only. No fake AI behavior.
+Execution engine wiring replaces the mock when Phase 5 lands.
