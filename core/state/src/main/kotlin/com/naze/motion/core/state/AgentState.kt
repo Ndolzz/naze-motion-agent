@@ -9,7 +9,7 @@ enum class AgentState {
         get() = this == COMPLETED || this == FAILED || this == CANCELLED
 }
 
-/** Legal transition table (NMA-STATE-002). Explicit — no dynamic invention. */
+/** Legal transition table (NMA-STATE-002). Explicit: no dynamic invention. */
 object AgentTransitions {
     private val legal: Map<AgentState, Set<AgentState>> = mapOf(
         AgentState.IDLE to setOf(AgentState.PLANNING),
@@ -18,7 +18,8 @@ object AgentTransitions {
         AgentState.READY to setOf(AgentState.EXECUTING, AgentState.CANCELLED),
         AgentState.EXECUTING to setOf(AgentState.OBSERVING, AgentState.FAILED, AgentState.CANCELLED),
         AgentState.OBSERVING to setOf(AgentState.VERIFYING, AgentState.FAILED, AgentState.CANCELLED),
-        AgentState.VERIFYING to setOf(AgentState.EXECUTING, AgentState.RECOVERING, AgentState.FAILED, AgentState.CANCELLED),
+        // COMPLETED is reachable from VERIFYING: a plan ends after its final action verifies.
+        AgentState.VERIFYING to setOf(AgentState.EXECUTING, AgentState.RECOVERING, AgentState.COMPLETED, AgentState.FAILED, AgentState.CANCELLED),
         AgentState.RECOVERING to setOf(AgentState.OBSERVING, AgentState.FAILED, AgentState.CANCELLED),
         AgentState.COMPLETED to setOf(AgentState.IDLE),
         AgentState.FAILED to setOf(AgentState.IDLE),

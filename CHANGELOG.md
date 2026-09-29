@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.5.0] PHASE 5 AND 6
+### Added
+- Execution engine: observe, execute, verify, recover loop driven by the
+  agent state machine through legal transitions only.
+- Bounded retry honoring RetryPolicy per action, with timeout enforcement
+  and fail fast on permanent errors.
+- RecoveryManager: bounded recovery attempts with backoff and cancellation
+  checks between attempts.
+- Structured EngineLog: typed events, levels, task and action ids, string
+  detail pairs, and a live listener sink for UI streaming.
+- Verifier for every VerificationRule type against an Observation, with
+  honest failure reasons when a rule cannot be proven.
+- ExecutionSummary outcome model: COMPLETED, FAILED, CANCELLED.
+- FakeAutomationDriver and FakeTargetResolver deterministic doubles with
+  scripted failure counters.
+- Engine unit tests: happy path, machine alignment, rejection, disconnect,
+  cancellation, retry, recovery, recovery exhaustion, timeout, log coverage.
+### Changed
+- State table amendment: VERIFYING may transition to COMPLETED so the engine
+  can finish a plan in a terminal state.
+
 ## [0.3.0] PHASE 10 UI PREVIEW
 ### Added
 - Precision Studio design system: NazeColors, NazeTypography, NazeSpacing,
