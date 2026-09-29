@@ -10,12 +10,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.naze.motion.app.ui.components.NazeCard
-import com.naze.motion.app.ui.components.NazeEmptyState
 import com.naze.motion.app.ui.components.NazeStatusLabel
 import com.naze.motion.app.ui.model.MockData
 import com.naze.motion.app.ui.theme.NazeColors
@@ -39,10 +42,9 @@ fun HistoryScreen(onOpenDetail: (String) -> Unit) {
                     Column {
                         Text(item.name, style = NazeTypography.body.copy(color = NazeColors.textPrimary))
                         NazeStatusLabel(
-                            label = item.outcome + " · " + item.time,
+                            label = item.outcome + " " + item.time,
                             color = if (item.completed) NazeColors.success else NazeColors.error,
-                            icon = androidx.compose.material.icons.Icons.Rounded.Check.takeIf { item.completed }
-                                ?: androidx.compose.material.icons.Icons.Rounded.ErrorOutline,
+                            icon = if (item.completed) Icons.Rounded.Check else Icons.Rounded.ErrorOutline,
                         )
                     }
                 }
@@ -52,7 +54,7 @@ fun HistoryScreen(onOpenDetail: (String) -> Unit) {
     }
 }
 
-/** Workflow detail with compact stats and expandable technical info. */
+/** Workflow detail with compact stats and timeline. */
 @Composable
 fun WorkflowDetailScreen(name: String, onBack: () -> Unit) {
     LazyColumn(
@@ -63,7 +65,8 @@ fun WorkflowDetailScreen(name: String, onBack: () -> Unit) {
         item {
             Column {
                 Text(name, style = NazeTypography.pageTitle, color = NazeColors.textPrimary)
-                NazeStatusLabel("Completed", NazeColors.success, androidx.compose.material.icons.Icons.Rounded.Check)
+                Spacer(Modifier.height(4.dp))
+                NazeStatusLabel(label = "Completed", color = NazeColors.success, icon = Icons.Rounded.Check)
             }
         }
         item {
@@ -81,8 +84,8 @@ fun WorkflowDetailScreen(name: String, onBack: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 MockData.plan.forEach { step ->
                     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                        androidx.compose.material3.Icon(
-                            androidx.compose.material.icons.Icons.Rounded.Check,
+                        Icon(
+                            Icons.Rounded.Check,
                             contentDescription = "completed",
                             tint = NazeColors.success,
                         )
