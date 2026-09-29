@@ -50,12 +50,10 @@ sealed interface AgentUiState {
         override val statusLabel = "RECOVERING"
         override val statusColor = NazeColors.warning
         override val statusIcon = Icons.Rounded.Refresh
-
     }
 
     data object Completed : AgentUiState {
-        overrid
-e val statusLabel = "COMPLETED"
+        override val statusLabel = "COMPLETED"
         override val statusColor = NazeColors.success
         override val statusIcon = Icons.Rounded.CheckCircle
     }
