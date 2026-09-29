@@ -1,0 +1,15 @@
+# Gradle
+.gradle/
+build/
+local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Secrets — never commit (NMA-SEC-001)
+*.jks
+*.keystore
+secrets.properties
+local.secrets.*
