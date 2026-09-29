@@ -12,8 +12,8 @@ android {
         applicationId = "com.naze.motion.agent"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "0.7.0"
+        versionCode = 5
+        versionName = "0.11.0"
     }
 
     buildTypes {
@@ -36,7 +36,13 @@ android {
 dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:state"))
+    implementation(project(":core:action"))
+    implementation(project(":core:engine"))
+    implementation(project(":core:adapter"))
+    implementation(project(":core:ai"))
+    implementation(project(":core:agent"))
     implementation(project(":core:access"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     val composeBom = platform("androidx.compose:compose-bom:2024.09.03")
     implementation(composeBom)

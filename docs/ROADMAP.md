@@ -10,10 +10,10 @@
 | 5 | Execution engine + cancellation + structured logging | done |
 | 6 | FakeAutomationDriver | done |
 | 7 | Accessibility service, AndroidAccessibilityDriver, ObservationProvider | done |
-| 8 | AlightMotionAdapter | next |
+| 8 | AlightMotionAdapter | done |
 | 9 | AI planner + provider abstraction + output validation | done |
 | 10 | Precision Studio UI with mock state | done (mock preview) |
-| 11 | End to end flow | planned |
+| 11 | End to end flow | done |
 
 Phase 7 note: core/access is an Android library holding
 MotionAccessibilityService, AndroidAccessibilityDriver,
@@ -31,3 +31,14 @@ module as deterministic doubles for tests and previews.
 
 Phase 10 note: screens render from mock state only. No fake AI behavior.
 Engine wiring into the screens arrives with Phase 11.
+
+Phase 11 note: core/agent adds MotionAgent, the end to end orchestrator that
+chains planner, target adapter, and execution engine into one typed run,
+with JVM end to end tests over the fake doubles. The app replaces its mock
+state with a real AgentRuntime over AndroidAccessibilityDriver,
+AccessibilityTargetResolver, AlightMotionAdapter, and the AiPlanner backed by
+LocalTemplateProvider, a deterministic on device template provider behind the
+same provider interface (network model providers arrive with a later phase).
+The dashboard runs real instructions, the status bar reflects the real
+accessibility connection, and the execution console streams the structured
+engine log.

@@ -1,21 +1,25 @@
 # Changelog
 
-## [0.9.0] PHASE 9
+## [0.11.0] PHASE 11
 ### Added
-- core/ai pure JVM module.
-- AIProvider interface and PlanningRequest: provider-agnostic planner input,
-  no Android or vendor SDK types in core (NMA-AI-002/003).
-- Typed PlanningError taxonomy: ProviderError, Timeout, MalformedJson,
-  SchemaViolation, SafetyViolation, InvalidAction.
-- PlannerJsonParser: strict JSON to domain Action mapping with schema
-  rejection, including coordinate targets that lack explicit fallback
-  consent.
-- SafetyValidator: bounded plan size, bounded per-action timeout, coordinate
-  fallback gate.
-- AiPlanner: provider call bounded by timeout, then parser, safety, and
-  per-action ActionValidator before an ActionPlan is produced (NMA-AI-004).
-- Planner unit tests covering happy path and every rejection fixture
-  (NMA-TEST-011).
+- core/agent module with MotionAgent: the end to end orchestrator chaining
+  planner, target adapter, and execution engine into a single typed run.
+- AgentResult terminal model: Completed, Failed, Cancelled, PlanningFailed,
+  TargetUnavailable, InvalidInstruction.
+- LocalTemplateProvider: a deterministic on device provider behind the same
+  AIProvider interface; output passes the full planning validation pipeline.
+- Eight end to end JVM tests over FakeAutomationDriver and FakeTargetResolver.
+- AgentRuntime app wiring: real accessibility driver, target resolver,
+  AlightMotionAdapter, planner, and engine behind the dashboard and
+  execution console. The structured engine log streams live into the console.
+### Changed
+- The dashboard RUN button now starts a real agent run instead of flipping
+  mock state; the status bar reflects the real accessibility connection.
+- STOP AGENT and the execution close button cancel the run through the
+  cancellation token (Emergency Stop, NMA-SEC-008/009).
+- settings.gradle.kts now includes :core:adapter, :core:ai, and :core:agent,
+  and CI runs their tests alongside the other core modules.
+- app version 0.11.0.
 
 ## [0.7.0] PHASE 7
 ### Added
@@ -57,8 +61,7 @@
 ## [0.3.0] PHASE 10 UI PREVIEW
 ### Added
 - Precision Studio design system: NazeColors, NazeTypography, NazeSpacing,
-  NazeShapes, Na
-zeAnimations tokens.
+  NazeShapes, NazeAnimations tokens.
 - Reusable component library: buttons, cards, sections, text field,
   status label, status dot, divider, empty state, action timeline,
   action row, monospace log, progress.

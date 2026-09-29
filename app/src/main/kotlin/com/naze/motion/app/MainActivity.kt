@@ -19,6 +19,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.naze.motion.app.agent.AgentRuntime
 import com.naze.motion.app.ui.components.NazeDivider
 import com.naze.motion.app.ui.components.NazeStatusLabel
 import com.naze.motion.app.ui.model.AgentUiState
@@ -62,17 +65,24 @@ private enum class Destination(val label: String) {
 fun NazeMotionApp() {
     var destination by remember { mutableStateOf(Destination.AGENT) }
     var detailName by remember { mutableStateOf<String?>(null) }
-    // Mock execution preview state. Real wiring arrives with the execution engine.
-    var executionActive by remember { mutableStateOf(false) }
-    var agentState by remember { mutableStateOf<AgentUiState>(AgentUiState.Idle) }
-    var currentIndex by remember { mutableStateOf(2) }
+    // Phase 11: real runtime state replaces the mock execution preview.
+    val runtime = remember { AgentRuntime() }
+    val executionActive by runtime.executionActive.collectAsState()
+    val agentState by runtime.uiState.collectAsState()
+    val currentIndex by runtime.currentStep.collectAsState()
+    val statusConnected by runtime.statusConnected.collectAsState()
+    val taskName by runtime.taskName.collectAsState()
+
+    DisposableEffect(Unit) {
+        onDispose { runtime.shutdown() }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         NazeTopBar(
             title = "Naze Motion",
-            statusConnected = true,
+            statusConnected = statusConnected,
             onCloseExecution = if (executionActive) {
-                { executionActive = false; agentState = AgentUiState.Cancelled }
+                { runtime.closeExecution() }
             } else null,
         )
         NazeDivider()
@@ -90,13 +100,13 @@ fun NazeMotionApp() {
         Box(modifier = Modifier.weight(1f)) {
             when {
                 executionActive -> ExecutionScreen(
-                    taskName = "Cinematic Intro",
+                    taskName = taskName,
                     state = agentState,
                     currentIndex = currentIndex,
-                    onStopAgent = { executionActive = false; agentState = AgentUiState.Cancelled },
+                    onStopAgent = { runtime.stop() },
                 )
                 destination == Destination.AGENT -> AgentDashboardScreen(
-                    onStartTask = { executionActive = true; agentState = AgentUiState.Executing },
+                    onStartTask = { runtime.start(it) },
                     onOpenHistory = { destination = Destination.HISTORY },
                 )
                 destination == Destination.HISTORY && detailName != null -> WorkflowDetailScreen(
