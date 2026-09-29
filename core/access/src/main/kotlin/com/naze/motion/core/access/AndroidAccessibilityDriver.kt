@@ -17,7 +17,6 @@ import com.naze.motion.core.action.ScreenCapture
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import java.util.function.Consumer
 import kotlin.coroutines.resume
 
 /** Node handle wrapping a live AccessibilityNodeInfo (NMA-ACCESS-004). */
@@ -53,7 +52,8 @@ private class Screenshot(
 ) : ScreenCapture
 
 /**
- * AutomationDriver on top of MotionAccessibilityService (NMA-ACCESS-001/002).
+ * Automatio
+nDriver on top of MotionAccessibilityService (NMA-ACCESS-001/002).
  * All node interaction happens on the main dispatcher; failures return false
  * or null as typed results, never crash (NMA-ACCESS-006).
  */
@@ -97,7 +97,8 @@ class AndroidAccessibilityDriver : AutomationDriver {
 
     override suspend fun click(node: NodeHandle): Boolean = withContext(Dispatchers.Main) {
         when (node) {
-            is NodeHandleImpl -> node.node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            is NodeHandleImpl -> node.node.performAction(Ac
+cessibilityNodeInfo.ACTION_CLICK)
             is CoordinateNodeHandle -> dispatchTap(node.x, node.y)
             else -> false
         }
@@ -137,7 +138,8 @@ class AndroidAccessibilityDriver : AutomationDriver {
         scrollable.performAction(action)
     }
 
-    override suspend fun typeText(text: String): Boolean = withContext(Dispatchers.Main) {
+  
+  override suspend fun typeText(text: String): Boolean = withContext(Dispatchers.Main) {
         val svc = service ?: return@withContext false
         val root = svc.rootInActiveWindow ?: return@withContext false
         val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return@withContext false
@@ -169,12 +171,16 @@ class AndroidAccessibilityDriver : AutomationDriver {
         val svc = service ?: return@withContext null
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return@withContext null
         try {
-            // API 34 signature: takeScreenshot(displayId, executor, consumer).
+            // API 34 signature: takeScreenshot(displayId, executor, TakeScreenshotCallback).
             val result = suspendCancellableCoroutine<AccessibilityService.ScreenshotResult> { cont ->
                 svc.takeScreenshot(
                     Display.DEFAULT_DISPLAY,
                     svc.mainExecutor,
-                    Consumer<AccessibilityService.ScreenshotResult> { r -> cont.resume(r) },
+                    object : AccessibilityService.TakeScreenshotCallback() {
+                        override fun onScreenshot(screenshot: AccessibilityService.ScreenshotResult) {
+                            cont.resume(screenshot)
+                        }
+                    },
                 )
             }
             val buffer = result.hardwareBuffer ?: return@withContext null
@@ -223,7 +229,8 @@ class AndroidAccessibilityDriver : AutomationDriver {
         val path = Path()
         path.moveTo(x.toFloat(), y.toFloat())
         val stroke = GestureDescription.StrokeDescription(path, 0L, 800L)
-        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+        val gesture = GestureDescrip
+tion.Builder().addStroke(stroke).build()
         return dispatchGesture(gesture)
     }
 
