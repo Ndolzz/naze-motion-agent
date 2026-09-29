@@ -54,7 +54,8 @@ sealed interface AgentUiState {
     }
 
     data object Completed : AgentUiState {
-        override val statusLabel = "COMPLETED"
+        overrid
+e val statusLabel = "COMPLETED"
         override val statusColor = NazeColors.success
         override val statusIcon = Icons.Rounded.CheckCircle
     }
@@ -114,8 +115,7 @@ object MockData {
     )
 
     val history = listOf(
-        HistoryItem("Cinematic Intro", "Completed", "10:4
-2", true),
+        HistoryItem("Cinematic Intro", "Completed", "10:42", true),
         HistoryItem("Naze Promo", "Failed", "09:21", false),
         HistoryItem("Logo Animation", "Completed", "Yesterday", true),
     )
