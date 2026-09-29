@@ -1,6 +1,8 @@
 package com.naze.motion.app.ui.components
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,7 +24,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.naze.motion.app.ui.theme.NazeColors
 import com.naze.motion.app.ui.theme.NazeShapes
@@ -38,21 +39,13 @@ fun NazeActionTimeline(
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         items.forEachIndexed { index, (label, state) ->
-            NazeActionRow(
-                index = index + 1,
-                label = label,
-                state = state,
-            )
+            NazeActionRow(index = index + 1, label = label, state = state)
         }
     }
 }
 
 @Composable
-fun NazeActionRow(
-    index: Int,
-    label: String,
-    state: TimelineItemState,
-) {
+fun NazeActionRow(index: Int, label: String, state: TimelineItemState) {
     val labelColor = when (state) {
         TimelineItemState.SUCCESS -> NazeColors.textMuted
         TimelineItemState.ACTIVE -> NazeColors.textPrimary
@@ -62,9 +55,7 @@ fun NazeActionRow(
     }
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
     ) {
         Text(
             String.format("%02d", index),
@@ -92,20 +83,15 @@ private fun TimelineStateIndicator(state: TimelineItemState) {
             tint = NazeColors.warning, modifier = Modifier.size(size),
         )
         TimelineItemState.FAILED -> NazeStatusDot(NazeColors.error, description = "failed")
-        TimelineItemState.PENDING -> androidx.compose.foundation.layout.Box(
-            modifier = Modifier
-                .size(size)
-                .androidx.compose.foundation.border(1.dp, NazeColors.border, CircleShape)
+        TimelineItemState.PENDING -> Box(
+            modifier = Modifier.size(size).border(1.dp, NazeColors.border, CircleShape)
         )
     }
 }
 
 /** Monospace technical log. Expandable by caller. */
 @Composable
-fun NazeLog(
-    entries: List<Pair<String, String>>,
-    modifier: Modifier = Modifier,
-) {
+fun NazeLog(entries: List<Pair<String, String>>, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -130,17 +116,11 @@ fun NazeLog(
 /** Small progress indicator with status text. No big loading animations. */
 @Composable
 fun NazeProgress(label: String, modifier: Modifier = Modifier) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.fillMaxWidth(),
-    ) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.fillMaxWidth()) {
         LinearProgressIndicator(
             color = NazeColors.primary,
             trackColor = NazeColors.border,
-            modifier = Modifier
-                .width(56.dp)
-                .height(2.dp)
-                .clip(RoundedCornerShape(2.dp)),
+            modifier = Modifier.width(56.dp).height(2.dp).clip(RoundedCornerShape(2.dp)),
         )
         Spacer(Modifier.width(12.dp))
         Text(label, style = NazeTypography.caption, color = NazeColors.textSecondary)
