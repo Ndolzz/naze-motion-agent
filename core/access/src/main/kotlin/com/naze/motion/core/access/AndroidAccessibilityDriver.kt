@@ -185,11 +185,13 @@ class AndroidAccessibilityDriver : AutomationDriver {
                 )
             }
             val buffer = result?.hardwareBuffer ?: return@withContext null
-            val bitmap = Bitmap.createBitmap(buffer)
-            val width = bitmap.width
-            val height = bitmap.height
+            // wrapHardwareBuffer (API 29) returns a HARDWARE bitmap; getPixels needs a software copy.
+            val hardwareBitmap = Bitmap.wrapHardwareBuffer(buffer, null) ?: return@withContext null
+            val softwareBitmap = hardwareBitmap.copy(Bitmap.Config.ARGB_8888, false) ?: return@withContext null
+            val width = softwareBitmap.width
+            val height = softwareBitmap.height
             val pixels = IntArray(width * height)
-            bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+            softwareBitmap.getPixels(pixels, 0, width, 0, 0, width, height)
             buffer.close()
             Screenshot(width, height, pixels)
         } catch (e: Exception) {
