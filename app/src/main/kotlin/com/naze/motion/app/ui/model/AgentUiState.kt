@@ -8,7 +8,6 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.TroubleshootOutline
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.naze.motion.app.ui.components.TimelineItemState
@@ -51,6 +50,7 @@ sealed interface AgentUiState {
         override val statusLabel = "RECOVERING"
         override val statusColor = NazeColors.warning
         override val statusIcon = Icons.Rounded.Refresh
+
     }
 
     data object Completed : AgentUiState {
@@ -114,7 +114,8 @@ object MockData {
     )
 
     val history = listOf(
-        HistoryItem("Cinematic Intro", "Completed", "10:42", true),
+        HistoryItem("Cinematic Intro", "Completed", "10:4
+2", true),
         HistoryItem("Naze Promo", "Failed", "09:21", false),
         HistoryItem("Logo Animation", "Completed", "Yesterday", true),
     )
