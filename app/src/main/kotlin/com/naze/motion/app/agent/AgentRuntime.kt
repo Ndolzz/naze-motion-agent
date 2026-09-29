@@ -1,12 +1,12 @@
 package com.naze.motion.app.agent
 
+import android.content.Context
 import com.naze.motion.app.ui.model.AgentUiState
 import com.naze.motion.core.access.AccessibilityConnection
 import com.naze.motion.core.access.AccessibilityTargetResolver
 import com.naze.motion.core.access.AndroidAccessibilityDriver
 import com.naze.motion.core.adapter.AlightMotionAdapter
 import com.naze.motion.core.agent.AgentResult
-import com.naze.motion.core.agent.LocalTemplateProvider
 import com.naze.motion.core.agent.MotionAgent
 import com.naze.motion.core.ai.AiPlanner
 import com.naze.motion.core.domain.AgentCancellationToken
@@ -19,15 +19,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * AgentRuntime (Phase 11): the real wiring between the UI and the core
- * pipeline. Replaces the Phase 10 mock state: the dashboard starts a real
- * run through MotionAgent over AndroidAccessibilityDriver,
- * AccessibilityTargetResolver, AlightMotionAdapter, and AiPlanner backed by
- * LocalTemplateProvider. The structured engine log streams live into the
- * execution console.
+ * AgentRuntime (Phase 11/12): the real wiring between the UI and the core
+ * pipeline. The dashboard starts a real run through MotionAgent over
+ * AndroidAccessibilityDriver, AccessibilityTargetResolver, and
+ * AlightMotionAdapter. The planner provider is built from ApiKeyStore:
+ * the selected in app configured network provider when its key is present,
+ * otherwise the deterministic LocalTemplateProvider. The structured engine
+ * log streams live into the execution console.
  */
-class AgentRuntime {
+class AgentRuntime(context: Context) {
 
+    private val store = ApiKeyStore(context)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var token: AgentCancellationToken? = null
 
@@ -63,7 +65,7 @@ class AgentRuntime {
             engine.log().onEvent { event ->
                 logLines.value = logLines.value + (formatTime(event.timestampMs) to event.type)
             }
-            val agent = MotionAgent(AiPlanner(LocalTemplateProvider()), adapter, engine)
+            val agent = MotionAgent(AiPlanner(store.activeProvider()), adapter, engine)
             val result = agent.run(clean, driver, resolver, cancellationToken)
             applyResult(result)
             statusConnected.value = AccessibilityConnection.connected

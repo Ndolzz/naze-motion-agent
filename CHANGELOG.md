@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.12.0] PHASE 12
+### Added
+- In app API key management: keys are entered on the Settings screen inside
+  the app and stored in app private storage on the device only. They are
+  never baked into the build and never logged.
+- Multi provider support: OpenAI, Anthropic, Google Gemini, any custom
+  OpenAI compatible endpoint, and the on device Local templates can all be
+  configured with a key, model, and optional base URL at the same time; one
+  is selected as active.
+- NetworkAiProvider in core/ai: an AIProvider implementation for
+  OPENAI_COMPATIBLE, ANTHROPIC, and GEMINI chat APIs with a system prompt
+  pinned to the planner JSON schema, code fence stripping, and typed
+  failures for non 2xx responses.
+- ApiKeyStore in the app: per provider key/model/base URL storage, clear,
+  selection, and an activeProvider factory that falls back to
+  LocalTemplateProvider when the selected provider is not fully configured.
+- Settings screen redesign: provider list with saved key state, masked key
+  field with show/hide, model and base URL fields, Save and Clear actions.
+- 17 JVM tests for NetworkAiProvider request building, endpoints, headers,
+  response extraction, sanitization, and config validation.
+### Changed
+- AgentRuntime now builds its planner from ApiKeyStore.activeProvider(), so
+  runs use the in app configured network provider when a key is present.
+- INTERNET permission added to the app manifest for network providers.
+- app version 0.12.0.
+
 ## [0.11.0] PHASE 11
 ### Added
 - core/agent module with MotionAgent: the end to end orchestrator chaining

@@ -14,6 +14,7 @@
 | 9 | AI planner + provider abstraction + output validation | done |
 | 10 | Precision Studio UI with mock state | done (mock preview) |
 | 11 | End to end flow | done |
+| 12 | In app multi provider API keys + network providers | done |
 
 Phase 7 note: core/access is an Android library holding
 MotionAccessibilityService, AndroidAccessibilityDriver,
@@ -42,3 +43,14 @@ same provider interface (network model providers arrive with a later phase).
 The dashboard runs real instructions, the status bar reflects the real
 accessibility connection, and the execution console streams the structured
 engine log.
+
+Phase 12 note: API keys are entered inside the app on the Settings screen and
+stored in app private storage on the device; nothing is baked into the build.
+ApiKeyStore keeps one key, model, and optional base URL per provider, several
+providers can be configured at once, and one is selected as active.
+NetworkAiProvider in core/ai implements AIProvider for OpenAI compatible
+endpoints (including custom base URLs), Anthropic, and Google Gemini; its
+request, endpoint, header, and response handling are pure functions covered
+by JVM tests. The planner falls back to LocalTemplateProvider whenever the
+selected provider has no complete configuration, so a missing key never
+breaks a run silently.

@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.naze.motion.app.agent.AgentRuntime
@@ -65,8 +66,9 @@ private enum class Destination(val label: String) {
 fun NazeMotionApp() {
     var destination by remember { mutableStateOf(Destination.AGENT) }
     var detailName by remember { mutableStateOf<String?>(null) }
-    // Phase 11: real runtime state replaces the mock execution preview.
-    val runtime = remember { AgentRuntime() }
+    // Phase 11/12: real runtime state replaces the mock execution preview.
+    val context = LocalContext.current
+    val runtime = remember { AgentRuntime(context.applicationContext) }
     val executionActive by runtime.executionActive.collectAsState()
     val agentState by runtime.uiState.collectAsState()
     val currentIndex by runtime.currentStep.collectAsState()

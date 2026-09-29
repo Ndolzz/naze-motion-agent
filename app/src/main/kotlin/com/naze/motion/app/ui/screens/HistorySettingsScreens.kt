@@ -13,13 +13,32 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.naze.motion.app.agent.ApiKeyStore
+import com.naze.motion.app.ui.components.NazeButton
 import com.naze.motion.app.ui.components.NazeCard
 import com.naze.motion.app.ui.components.NazeStatusLabel
+import com.naze.motion.app.ui.components.NazeTextField
 import com.naze.motion.app.ui.model.MockData
 import com.naze.motion.app.ui.theme.NazeColors
 import com.naze.motion.app.ui.theme.NazeTypography
@@ -109,25 +128,173 @@ private fun DetailRow(label: String, value: String) {
     }
 }
 
-/** Settings: simple sections, API key never shown as plaintext. */
+/**
+ * Settings (Phase 12): API keys are entered here, inside the app, and stay
+ * on this device. Keys are masked by default, stored in app private
+ * storage, and used only for the selected provider. Multiple providers can
+ * be configured at once; one is active.
+ */
 @Composable
 fun SettingsScreen() {
+    val context = LocalContext.current
+    val store = remember { ApiKeyStore(context.applicationContext) }
+    var selectedId by remember { mutableStateOf(store.selectedId()) }
+    var apiKey by remember(selectedId) { mutableStateOf(store.load(selectedId).apiKey) }
+    var model by remember(selectedId) { mutableStateOf(store.load(selectedId).model) }
+    var baseUrl by remember(selectedId) { mutableStateOf(store.load(selectedId).baseUrl) }
+    var showKey by remember { mutableStateOf(false) }
+    var savedTick by remember { mutableStateOf(0) }
+
+    val entry = remember(selectedId) { ApiKeyStore.catalog.firstOrNull { it.id == selectedId } }
+    val saved = remember(savedTick, selectedId) { store.hasKey(selectedId) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item { Spacer(Modifier.height(8.dp)) }
         item { Text("Settings", style = NazeTypography.pageTitle, color = NazeColors.textPrimary) }
+
         item {
-            NazeCard {
-                Column {
-                    Text("AI", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Provider", "Not configured")
-                    DetailRow("Model", "Not configured")
-                    DetailRow("API configuration", "Managed securely")
+            Column {
+                Text("AI provider", style = NazeTypography.section, color = NazeColors.textPrimary)
+                Spacer(Modifier.height(8.dp))
+                ApiKeyStore.catalog.forEach { catalog ->
+                    val selected = catalog.id == selectedId
+                    val hasKey = catalog.kind != null && saved
+                    NazeCard(padding = 12.dp, onClick = { selectedId = catalog.id }) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                catalog.label,
+                                style = NazeTypography.body.copy(
+                                    color = if (selected) NazeColors.primary else NazeColors.textPrimary,
+                                ),
+                            )
+                            when {
+                                catalog.kind == null ->
+                                    NazeStatusLabel(
+                                        label = if (selected) "Active" else "On device",
+                                        color = NazeColors.textMuted,
+                                        icon = Icons.Rounded.History,
+                                    )
+                                hasKey ->
+                                    NazeStatusLabel(
+                                        label = if (selected) "Active" else "Key saved",
+                                        color = NazeColors.success,
+                                        icon = Icons.Rounded.Key,
+                                    )
+                                else ->
+                                    NazeStatusLabel(
+                                        label = "No key",
+                                        color = NazeColors.warning,
+                                        icon = Icons.Rounded.ErrorOutline,
+                                    )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
                 }
             }
         }
+
+        if (entry != null && entry.kind != null) {
+            item {
+                NazeCard {
+                    Column {
+                        Text(entry.label, style = NazeTypography.section, color = NazeColors.textPrimary)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "The key is stored on this device only and sent only to the configured endpoint.",
+                            style = NazeTypography.caption,
+                            color = NazeColors.textMuted,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = apiKey,
+                            onValueChange = { apiKey = it },
+                            placeholder = {
+                                Text("API key", style = NazeTypography.body, color = NazeColors.textMuted)
+                            },
+                            singleLine = true,
+                            visualTransformation =
+                                if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                IconButton(onClick = { showKey = !showKey }) {
+                                    Icon(
+                                        if (showKey) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                                        contentDescription = if (showKey) "Hide key" else "Show key",
+                                        tint = NazeColors.textMuted,
+                                    )
+                                }
+                            },
+                            shape = NazeShapes.card,
+                            textStyle = NazeTypography.body,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = NazeColors.surfaceElevated,
+                                unfocusedContainerColor = NazeColors.surfaceElevated,
+                                focusedBorderColor = NazeColors.primary,
+                                unfocusedBorderColor = NazeColors.border,
+                                cursorColor = NazeColors.primary,
+                                focusedTextColor = NazeColors.textPrimary,
+                                unfocusedTextColor = NazeColors.textPrimary,
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        NazeTextField(
+                            value = model,
+                            onValueChange = { model = it },
+                            placeholder = entry.defaultModel ?: "Model name",
+                            minLines = 1,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        NazeTextField(
+                            value = baseUrl,
+                            onValueChange = { baseUrl = it },
+                            placeholder = entry.defaultBaseUrl ?: "Base URL",
+                            minLines = 1,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            NazeButton(
+                                text = "Save",
+                                onClick = {
+                                    store.save(selectedId, apiKey, model, baseUrl)
+                                    store.setSelected(selectedId)
+                                    savedTick = savedTick + 1
+                                },
+                                enabled = apiKey.isNotBlank() && model.isNotBlank(),
+                                isPrimary = true,
+                                leadingIcon = Icons.Rounded.Check,
+                            )
+                            NazeButton(
+                                text = "Clear",
+                                onClick = {
+                                    store.clear(selectedId)
+                                    apiKey = ""
+                                    model = ""
+                                    baseUrl = ""
+                                    savedTick = savedTick + 1
+                                },
+                            )
+                        }
+                        if (saved) {
+                            Spacer(Modifier.height(8.dp))
+                            NazeStatusLabel(
+                                label = "Key saved on this device",
+                                color = NazeColors.success,
+                                icon = Icons.Rounded.Key,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         item {
             NazeCard {
                 Column {
@@ -153,7 +320,7 @@ fun SettingsScreen() {
             NazeCard {
                 Column {
                     Text("About", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Version", "0.1.0")
+                    DetailRow("Version", "0.12.0")
                     DetailRow("Open source licenses", "View")
                 }
             }
