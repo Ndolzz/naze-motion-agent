@@ -1,0 +1,54 @@
+# Debug APK build — activates automatically once the Android app module exists.
+# Until :app exists, the job exits cleanly (skipped, not failed).
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  apk:
+    name: Debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for Android app module
+        id: appcheck
+        run: |
+          if [ -f "settings.gradle.kts" ] && grep -q '":app"' settings.gradle.kts && [ -d "app" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Modul :app belum ada (Phase 10) — APK build dilewati."
+          fi
+
+      - name: Set up JDK 17
+        if: steps.appcheck.outputs.exists == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        if: steps.appcheck.outputs.exists == 'true'
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        if: steps.appcheck.outputs.exists == 'true'
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10'
+
+      - name: Build debug APK
+        if: steps.appcheck.outputs.exists == 'true'
+        run: gradle :app:assembleDebug
+
+      - name: Upload APK artifact
+        if: steps.appcheck.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: naze-motion-agent-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
