@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Path
 import android.os.Build
 import android.os.Bundle
+import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
 import com.naze.motion.core.action.AccessibilityTreeSnapshot
 import com.naze.motion.core.action.ActionQuery
@@ -126,11 +127,12 @@ class AndroidAccessibilityDriver : AutomationDriver {
         val collected = mutableListOf<AccessibilityNodeInfo>()
         collectNodes(root, collected, MAX_TRAVERSAL_NODES)
         val scrollable = collected.firstOrNull { it.isScrollable } ?: return@withContext false
+        // LEFT/RIGHT only exist as AccessibilityAction objects (API 23), not int constants.
         val action = when (direction) {
             ScrollDirection.DOWN -> AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
             ScrollDirection.UP -> AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
-            ScrollDirection.LEFT -> AccessibilityNodeInfo.ACTION_SCROLL_LEFT
-            ScrollDirection.RIGHT -> AccessibilityNodeInfo.ACTION_SCROLL_RIGHT
+            ScrollDirection.LEFT -> AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_LEFT.id
+            ScrollDirection.RIGHT -> AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_RIGHT.id
         }
         scrollable.performAction(action)
     }
@@ -167,8 +169,13 @@ class AndroidAccessibilityDriver : AutomationDriver {
         val svc = service ?: return@withContext null
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return@withContext null
         try {
+            // API 34 signature: takeScreenshot(displayId, executor, consumer).
             val result = suspendCancellableCoroutine<AccessibilityService.ScreenshotResult> { cont ->
-                svc.takeScreenshot(svc.mainExecutor, Consumer { r -> cont.resume(r) })
+                svc.takeScreenshot(
+                    Display.DEFAULT_DISPLAY,
+                    svc.mainExecutor,
+                    Consumer<AccessibilityService.ScreenshotResult> { r -> cont.resume(r) },
+                )
             }
             val buffer = result.hardwareBuffer ?: return@withContext null
             val bitmap = Bitmap.createBitmap(buffer)
