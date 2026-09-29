@@ -1,16 +1,21 @@
 # Changelog
 
-## [0.8.0] PHASE 8
+## [0.9.0] PHASE 9
 ### Added
-- core/adapter pure JVM module.
-- TargetApplicationAdapter interface: app-specific behavior stays behind an
-  adapter so the engine and planner never import target app knowledge
-  (NMA-ARCH-007).
-- AlightMotionAdapter: package com.alightmotion.motion, open with bounded
-  foreground polling, and a best-effort vocabulary of known UI queries
-  resolved through the AutomationDriver.
-- Adapter unit tests over FakeAutomationDriver: open, skip-launch, launch
-  failure, timeout, vocabulary, unknown ids.
+- core/ai pure JVM module.
+- AIProvider interface and PlanningRequest: provider-agnostic planner input,
+  no Android or vendor SDK types in core (NMA-AI-002/003).
+- Typed PlanningError taxonomy: ProviderError, Timeout, MalformedJson,
+  SchemaViolation, SafetyViolation, InvalidAction.
+- PlannerJsonParser: strict JSON to domain Action mapping with schema
+  rejection, including coordinate targets that lack explicit fallback
+  consent.
+- SafetyValidator: bounded plan size, bounded per-action timeout, coordinate
+  fallback gate.
+- AiPlanner: provider call bounded by timeout, then parser, safety, and
+  per-action ActionValidator before an ActionPlan is produced (NMA-AI-004).
+- Planner unit tests covering happy path and every rejection fixture
+  (NMA-TEST-011).
 
 ## [0.7.0] PHASE 7
 ### Added
