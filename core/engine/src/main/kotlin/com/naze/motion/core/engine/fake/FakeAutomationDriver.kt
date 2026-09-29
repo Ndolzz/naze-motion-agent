@@ -18,6 +18,20 @@ data class FakeNodeHandle(
     override val isClickable: Boolean = true,
 ) : NodeHandle
 
+/** Snapshot value object so no anonymous object captures driver state. */
+private data class FakeTreeSnapshot(
+    override val nodeCount: Int,
+    override val visibleText: List<String>,
+    override val contentDescriptions: List<String>,
+    override val clickableNodeCount: Int,
+) : AccessibilityTreeSnapshot
+
+private data class FakeScreenCapture(
+    override val width: Int,
+    override val height: Int,
+    override val pixels: IntArray,
+) : ScreenCapture
+
 /**
  * FakeAutomationDriver (Phase 6). Fully deterministic, no Android
  * dependencies. Failures are scripted via the remaining counters so tests
@@ -83,11 +97,7 @@ class FakeAutomationDriver : AutomationDriver {
 
     override suspend fun captureScreen(): ScreenCapture {
         calls.add("captureScreen")
-        return object : ScreenCapture {
-            override val width = 1080
-            override val height = 1920
-            override val pixels = IntArray(1)
-        }
+        return FakeScreenCapture(1080, 1920, IntArray(1))
     }
 
     override suspend fun getCurrentPackage(): String? {
@@ -98,12 +108,15 @@ class FakeAutomationDriver : AutomationDriver {
     override suspend fun getAccessibilityTree(): AccessibilityTreeSnapshot {
         calls.add("getAccessibilityTree")
         onTree?.invoke()
-        return object : AccessibilityTreeSnapshot {
-            override val nodeCount = visibleText.size + contentDescriptions.size + clickableNodeCount
-            override val visibleText = this@FakeAutomationDriver.visibleText
-            override val contentDescriptions = this@FakeAutomationDriver.contentDescriptions
-            override val clickableNodeCount = this@FakeAutomationDriver.clickableNodeCount
-        }
+        val text = visibleText
+        val descriptions = contentDescriptions
+        val clickable = clickableNodeCount
+        return FakeTreeSnapshot(
+            nodeCount = text.size + descriptions.size + clickable,
+            visibleText = text,
+            contentDescriptions = descriptions,
+            clickableNodeCount = clickable,
+        )
     }
 
     override fun isConnected(): Boolean = connected
