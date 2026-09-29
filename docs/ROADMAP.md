@@ -6,13 +6,11 @@
 | 1 | All specifications | done |
 | 2 | Domain model (core/domain) | done |
 | 3 | State machine + transition validation (core/state) | done |
-| 4 | Action system: dispatcher, handlers, validator | next |
-| 5 | Execution engine + cancellation + structured logging | planned |
+| 4 | Action system: dispatcher, handlers, validator | done |
+| 5 | Execution engine + cancellation + structured logging | next |
 | 6 | FakeAutomationDriver | planned |
 | 7 | Accessibility service, AndroidAccessibilityDriver, ObservationProvider | planned |
 | 8 | AlightMotionAdapter | planned |
 | 9 | AI planner + provider abstraction + output validation | planned |
 | 10 | Compose dashboard UI | planned |
-| 11 | End-to-end flow | planned |
-
-Note: Phases 4+ are intentionally NOT implemented yet (SDD discipline).
+| 11 | End to end flow | planned |
