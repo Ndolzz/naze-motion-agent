@@ -5,11 +5,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -39,27 +41,24 @@ object NazeColors {
 }
 
 object NazeTypography {
-    val display = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.S600(), lineHeight = 34.sp, color = NazeColors.textPrimary)
-    val pageTitle = TextStyle(fontSize = 23.sp, fontWeight = FontWeight.S600(), lineHeight = 28.sp, color = NazeColors.textPrimary)
-    val section = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.S600(), lineHeight = 22.sp, color = NazeColors.textPrimary)
-    val body = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.S400(), lineHeight = 20.sp, color = NazeColors.textSecondary)
-    val caption = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.S400(), lineHeight = 16.sp, color = NazeColors.textMuted)
+    val display = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.SemiBold, lineHeight = 34.sp, color = NazeColors.textPrimary)
+    val pageTitle = TextStyle(fontSize = 23.sp, fontWeight = FontWeight.SemiBold, lineHeight = 28.sp, color = NazeColors.textPrimary)
+    val section = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold, lineHeight = 22.sp, color = NazeColors.textPrimary)
+    val body = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 20.sp, color = NazeColors.textSecondary)
+    val caption = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Normal, lineHeight = 16.sp, color = NazeColors.textMuted)
     val technical = TextStyle(fontSize = 12.sp, fontFamily = FontFamily.Monospace, lineHeight = 18.sp, color = NazeColors.textMuted)
-
-    private fun FontWeight.Companion.S600() = FontWeight(600)
-    private fun FontWeight.Companion.S400() = FontWeight(400)
 }
 
 data class NazeSpacing(
-    val xs: androidx.compose.ui.unit.Dp = 4.dp,
-    val sm: androidx.compose.ui.unit.Dp = 8.dp,
-    val md: androidx.compose.ui.unit.Dp = 12.dp,
-    val base: androidx.compose.ui.unit.Dp = 16.dp,
-    val lg: androidx.compose.ui.unit.Dp = 20.dp,
-    val xl: androidx.compose.ui.unit.Dp = 24.dp,
-    val xxl: androidx.compose.ui.unit.Dp = 32.dp,
-    val xxxl: androidx.compose.ui.unit.Dp = 40.dp,
-    val huge: androidx.compose.ui.unit.Dp = 48.dp,
+    val xs: Dp = 4.dp,
+    val sm: Dp = 8.dp,
+    val md: Dp = 12.dp,
+    val base: Dp = 16.dp,
+    val lg: Dp = 20.dp,
+    val xl: Dp = 24.dp,
+    val xxl: Dp = 32.dp,
+    val xxxl: Dp = 40.dp,
+    val huge: Dp = 48.dp,
 )
 
 object NazeShapes {
@@ -84,8 +83,6 @@ private fun nazeShapes(): Shapes = Shapes(
     large = NazeShapes.container,
 )
 
-private fun nazeTypography(): Typography = Typography()
-
 fun nazeColorScheme() = darkColorScheme(
     primary = NazeColors.primary,
     background = NazeColors.background,
@@ -99,11 +96,11 @@ fun nazeColorScheme() = darkColorScheme(
     outlineVariant = NazeColors.borderStrong,
 )
 
-@androidx.compose.runtime.Composable
-fun NazeMotionTheme(content: @androidx.compose.runtime.Composable () -> Unit) {
+@Composable
+fun NazeMotionTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = nazeColorScheme(),
-        typography = nazeTypography(),
+        typography = Typography(),
         shapes = nazeShapes(),
         content = content,
     )
