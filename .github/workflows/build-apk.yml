@@ -39,32 +39,21 @@ jobs:
           gradle :app:assembleDebug --console=plain --stacktrace > gradleoutput.txt 2>&1
           status=$?
           if [ $status -ne 0 ]; then
-            tail -n 200 gradleoutput.txt > gradletail.txt
             echo "### Debug APK build failed. Gradle output tail" >> $GITHUB_STEP_SUMMARY
             echo '~~~' >> $GITHUB_STEP_SUMMARY
-            cat gradletail.txt >> $GITHUB_STEP_SUMMARY
+            tail -n 200 gradleoutput.txt >> $GITHUB_STEP_SUMMARY
             echo '~~~' >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
-      - name: Report build failure on the commit
+      - name: Publish build log
         if: failure()
         run: |
-          python3 - <<'PYEOF'
-          import json
-          body = open('gradletail.txt').read()
-          payload = {"body": "Debug APK build failed. Last 200 lines of Gradle output:\n\n~~~\n" + body + "\n~~~"}
-          with open('commentpayload.json', 'w') as f:
-              json.dump(payload, f)
-          PYEOF
-          curl -s -X POST \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -d @commentpayload.json \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments" > curlresult.txt || true
-          cat curlresult.txt
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git config user.name "naze"
+          git config user.email "nueexoly@gmail.com"
+          git add gradleoutput.txt
+          git commit -m "chore: record gradle output for the failed debug build"
+          git push origin "HEAD:refs/heads/buildlogs" --force
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
