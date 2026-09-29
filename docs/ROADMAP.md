@@ -10,10 +10,16 @@
 | 5 | Execution engine + cancellation + structured logging | done |
 | 6 | FakeAutomationDriver | done |
 | 7 | Accessibility service, AndroidAccessibilityDriver, ObservationProvider | done |
-| 8 | AlightMotionAdapter | next |
+| 8 | AlightMotionAdapter | done |
 | 9 | AI planner + provider abstraction + output validation | planned |
 | 10 | Precision Studio UI with mock state | done (mock preview) |
 | 11 | End to end flow | planned |
+
+Phase 8 note: core/adapter is a pure JVM module holding
+TargetApplicationAdapter and AlightMotionAdapter. The adapter knows the
+target package (com.alightmotion.motion) and a best-effort vocabulary of
+known UI queries; all interaction is delegated to the AutomationDriver so
+the engine stays app agnostic (NMA-ARCH-007).
 
 Phase 7 note: core/access is an Android library holding
 MotionAccessibilityService, AndroidAccessibilityDriver,

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0] PHASE 8
+### Added
+- core/adapter pure JVM module.
+- TargetApplicationAdapter interface: app-specific behavior stays behind an
+  adapter so the engine and planner never import target app knowledge
+  (NMA-ARCH-007).
+- AlightMotionAdapter: package com.alightmotion.motion, open with bounded
+  foreground polling, and a best-effort vocabulary of known UI queries
+  resolved through the AutomationDriver.
+- Adapter unit tests over FakeAutomationDriver: open, skip-launch, launch
+  failure, timeout, vocabulary, unknown ids.
+
 ## [0.7.0] PHASE 7
 ### Added
 - core/access Android library module.
@@ -40,7 +52,8 @@
 ## [0.3.0] PHASE 10 UI PREVIEW
 ### Added
 - Precision Studio design system: NazeColors, NazeTypography, NazeSpacing,
-  NazeShapes, NazeAnimations tokens.
+  NazeShapes, Na
+zeAnimations tokens.
 - Reusable component library: buttons, cards, sections, text field,
   status label, status dot, divider, empty state, action timeline,
   action row, monospace log, progress.
