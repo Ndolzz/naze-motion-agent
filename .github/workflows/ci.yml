@@ -1,4 +1,4 @@
-# CI — unit tests for pure-JVM core modules (NMA-TEST-014)
+# CI unit tests for pure JVM core modules (NMA-TEST-014)
 name: CI
 
 on:
@@ -19,10 +19,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle (no wrapper yet — use Gradle 8.10)
+      - name: Setup Gradle (no wrapper yet, use Gradle 8.10)
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10'
 
       - name: Run core tests
-        run: gradle :core:domain:test :core:state:test
+        run: gradle :core:domain:test :core:state:test :core:action:test
