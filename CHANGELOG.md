@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.7.0] PHASE 7
+### Added
+- core/access Android library module.
+- MotionAccessibilityService with explicit connection tracking and no
+  automation logic inside the service.
+- AndroidAccessibilityDriver implementing the full AutomationDriver contract
+  over AccessibilityNodeInfo with gesture fallback for coordinate taps,
+  long presses, and swipes.
+- AccessibilityTargetResolver with semantic priority resolution and explicit
+  coordinate fallback marking.
+- AccessibilityObservationProvider over the accessibility tree.
+- Accessibility service manifest entry and service configuration resource.
+- Bounded tree traversal cap so a pathological screen can never hang a read.
+- ObservationProvider interface in core/engine; DriverObservationSource now
+  implements it.
+
 ## [0.5.0] PHASE 5 AND 6
 ### Added
 - Execution engine: observe, execute, verify, recover loop driven by the

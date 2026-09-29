@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_label">Naze Motion Automation</string>
+    <string name="accessibility_service_description">Lets Naze Motion Agent perform the accessibility actions you approve inside Alight Motion. The agent never reads your other apps.</string>
+</resources>

@@ -6,13 +6,21 @@ import com.naze.motion.core.domain.ScreenState
 import com.naze.motion.core.domain.TargetApplication
 
 /**
+ * Observation abstraction (NMA-ACCESS-005). Implementations capture an
+ * Observation without interpretation. The engine reacts to null.
+ */
+interface ObservationProvider {
+    suspend fun observe(target: TargetApplication): Observation?
+}
+
+/**
  * Captures an Observation through the AutomationDriver. Pure data mapping:
  * no interpretation, no retry. Returns null when the accessibility tree is
  * unavailable; the engine decides how to react (NMA-DOMAIN-007).
  */
-class DriverObservationSource(private val driver: AutomationDriver) {
+class DriverObservationSource(private val driver: AutomationDriver) : ObservationProvider {
 
-    suspend fun observe(target: TargetApplication): Observation? {
+    override suspend fun observe(target: TargetApplication): Observation? {
         val tree = driver.getAccessibilityTree() ?: return null
         val currentPackage = driver.getCurrentPackage()
         val screenState = when {

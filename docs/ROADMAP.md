@@ -9,15 +9,21 @@
 | 4 | Action system: dispatcher, handlers, validator | done |
 | 5 | Execution engine + cancellation + structured logging | done |
 | 6 | FakeAutomationDriver | done |
-| 7 | Accessibility service, AndroidAccessibilityDriver, ObservationProvider | next |
-| 8 | AlightMotionAdapter | planned |
+| 7 | Accessibility service, AndroidAccessibilityDriver, ObservationProvider | done |
+| 8 | AlightMotionAdapter | next |
 | 9 | AI planner + provider abstraction + output validation | planned |
 | 10 | Precision Studio UI with mock state | done (mock preview) |
 | 11 | End to end flow | planned |
 
+Phase 7 note: core/access is an Android library holding
+MotionAccessibilityService, AndroidAccessibilityDriver,
+AccessibilityTargetResolver, and AccessibilityObservationProvider. The
+service is user enabled in system settings; a disconnect surfaces as a
+typed failure, never a crash.
+
 Phase 5 note: the engine runs observe, execute, verify, recover with bounded
 retry and recovery, timeout enforcement, cancellation checks at every boundary,
-and a structured event log. The state table now allows VERIFYING to COMPLETED
+and a structured event log. The state table allows VERIFYING to COMPLETED
 so a finished plan reaches a terminal state legally.
 
 Phase 6 note: FakeAutomationDriver and FakeTargetResolver live in the engine
