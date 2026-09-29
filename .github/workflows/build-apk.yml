@@ -10,7 +10,7 @@ env:
   ANDROID_HOME: /usr/local/lib/android/sdk
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   apk:
@@ -40,6 +40,10 @@ jobs:
           status=$?
           if [ $status -ne 0 ]; then
             tail -n 200 gradleoutput.txt > gradletail.txt
+            echo "### Debug APK build failed. Gradle output tail" >> $GITHUB_STEP_SUMMARY
+            echo '~~~' >> $GITHUB_STEP_SUMMARY
+            cat gradletail.txt >> $GITHUB_STEP_SUMMARY
+            echo '~~~' >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
@@ -57,7 +61,8 @@ jobs:
             -H "Authorization: token $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             -d @commentpayload.json \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments" || true
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments" > curlresult.txt || true
+          cat curlresult.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
