@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -77,16 +78,10 @@ fun NazeMotionApp() {
         NazeDivider()
         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
             Destination.entries.forEach { dest ->
-                Text(
-                    text = dest.label,
-                    style = NazeTypography.caption.copy(
-                        color = if (destination == dest && !executionActive) NazeColors.primary else NazeColors.textMuted,
-                        fontWeight = if (destination == dest) FontWeight.SemiBold else FontWeight.Normal,
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { destination = dest; detailName = null }
-                        .padding(12.dp),
+                NavItem(
+                    label = dest.label,
+                    selected = destination == dest && !executionActive,
+                    onClick = { destination = dest; detailName = null },
                 )
             }
         }
@@ -114,6 +109,26 @@ fun NazeMotionApp() {
             }
         }
     }
+}
+
+/** Nav item inside RowScope so weight resolves correctly. */
+@Composable
+private fun RowScope.NavItem(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Text(
+        text = label,
+        style = NazeTypography.caption.copy(
+            color = if (selected) NazeColors.primary else NazeColors.textMuted,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+        ),
+        modifier = Modifier
+            .weight(1f)
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+    )
 }
 
 @Composable
