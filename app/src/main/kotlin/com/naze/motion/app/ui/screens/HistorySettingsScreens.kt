@@ -41,6 +41,7 @@ import com.naze.motion.app.ui.components.NazeStatusLabel
 import com.naze.motion.app.ui.components.NazeTextField
 import com.naze.motion.app.ui.model.MockData
 import com.naze.motion.app.ui.theme.NazeColors
+import com.naze.motion.app.ui.theme.NazeShapes
 import com.naze.motion.app.ui.theme.NazeTypography
 
 /** Compact activity log, not big cards. */
