@@ -8,15 +8,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,20 +22,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.naze.motion.app.ui.components.NazeActionTimeline
 import com.naze.motion.app.ui.components.NazeButton
 import com.naze.motion.app.ui.components.NazeCard
-import com.naze.motion.app.ui.components.NazeConnectionRow
 import com.naze.motion.app.ui.components.NazeEmptyState
-import com.naze.motion.app.ui.components.NazeLog
-import com.naze.motion.app.ui.components.NazeProgress
 import com.naze.motion.app.ui.components.NazeSection
 import com.naze.motion.app.ui.components.NazeStatusLabel
 import com.naze.motion.app.ui.components.NazeTextField
-import com.naze.motion.app.ui.components.TimelineItemState
-import com.naze.motion.app.ui.model.AgentUiState
 import com.naze.motion.app.ui.model.MockData
-import com.naze.motion.app.ui.model.TimelineEntry
 import com.naze.motion.app.ui.theme.NazeColors
 import com.naze.motion.app.ui.theme.NazeTypography
 
@@ -76,7 +64,7 @@ fun AgentDashboardScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    NazeConnectionRowCompact()
+                    NazeStatusLabel(label = "Connected", color = NazeColors.success, icon = Icons.Rounded.PlayArrow)
                     NazeButton(
                         text = "RUN",
                         onClick = { if (instruction.isNotBlank()) onStartTask(instruction) },
@@ -108,11 +96,6 @@ fun AgentDashboardScreen(
                                         Text(name, style = NazeTypography.body.copy(color = NazeColors.textPrimary))
                                         Text(meta, style = NazeTypography.caption)
                                     }
-                                    Icon(
-                                        Icons.Rounded.Add,
-                                        contentDescription = null,
-                                        tint = NazeColors.textMuted,
-                                    )
                                 }
                             }
                         }
@@ -122,13 +105,4 @@ fun AgentDashboardScreen(
         }
         item { Spacer(Modifier.height(32.dp)) }
     }
-}
-
-@Composable
-private fun NazeConnectionRowCompact() {
-    NazeStatusLabel(
-        label = "Connected",
-        color = NazeColors.success,
-        icon = Icons.Rounded.PlayArrow,
-    )
 }
