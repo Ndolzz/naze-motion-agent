@@ -19,10 +19,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle (no wrapper yet, use Gradle 8.10)
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10'
 
       - name: Run core tests
-        run: gradle :core:domain:test :core:state:test :core:action:test
+        run: gradle :core:domain:test :core:state:test :core:action:test --stacktrace
