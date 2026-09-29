@@ -3,6 +3,8 @@ package com.naze.motion.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,10 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.weight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -24,7 +25,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.naze.motion.app.ui.components.NazeDivider
 import com.naze.motion.app.ui.components.NazeStatusLabel
@@ -65,7 +68,6 @@ fun NazeMotionApp() {
     var executionActive by remember { mutableStateOf(false) }
     var agentState by remember { mutableStateOf<AgentUiState>(AgentUiState.Idle) }
     var currentIndex by remember { mutableStateOf(2) }
-    var onStop by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         NazeTopBar(
@@ -76,27 +78,24 @@ fun NazeMotionApp() {
             } else null,
         )
         NazeDivider()
-        androidx.compose.foundation.layout.Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
             Destination.entries.forEach { dest ->
                 Text(
                     text = dest.label,
                     style = NazeTypography.caption.copy(
                         color = if (destination == dest && !executionActive) NazeColors.primary else NazeColors.textMuted,
-                        fontWeight = if (destination == dest) androidx.compose.ui.text.font.FontWeight.SemiBold
-                        else androidx.compose.ui.text.font.FontWeight.Normal,
+                        fontWeight = if (destination == dest) FontWeight.SemiBold else FontWeight.Normal,
                     ),
                     modifier = Modifier
                         .weight(1f)
-                        .padding(8.dp)
-                        .androidx.compose.foundation.clickable { destination = dest },
+                        .clickable { destination = dest; detailName = null }
+                        .padding(12.dp),
                 )
             }
         }
         NazeDivider()
 
-        androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
+        Box(modifier = Modifier.weight(1f)) {
             when {
                 executionActive -> ExecutionScreen(
                     taskName = "Cinematic Intro",
@@ -128,7 +127,7 @@ private fun NazeTopBar(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(title, style = NazeTypography.pageTitle, color = NazeColors.textPrimary)
         Spacer(Modifier.weight(1f))

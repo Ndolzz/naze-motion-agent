@@ -18,53 +18,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.naze.motion.app.ui.components.NazeActionTimeline
+import com.naze.motion.app.ui.components.NazeActionRow
 import com.naze.motion.app.ui.components.NazeButton
 import com.naze.motion.app.ui.components.NazeCard
 import com.naze.motion.app.ui.components.NazeLog
 import com.naze.motion.app.ui.components.NazeProgress
 import com.naze.motion.app.ui.components.NazeSection
 import com.naze.motion.app.ui.components.NazeStatusLabel
+import com.naze.motion.app.ui.components.TimelineItemState
 import com.naze.motion.app.ui.model.AgentUiState
 import com.naze.motion.app.ui.model.MockData
-import com.naze.motion.app.ui.model.TimelineEntry
 import com.naze.motion.app.ui.theme.NazeColors
 import com.naze.motion.app.ui.theme.NazeTypography
 
 /**
- * Plan review screen. Nothing runs until the user confirms.
- */
-@Composable
-fun PlanningScreen(
-    instruction: String,
-    onRun: () -> Unit,
-    onCancel: () -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text(instruction, style = NazeTypography.pageTitle, color = NazeColors.textPrimary)
-        Spacer(Modifier.height(16.dp))
-        NazeSection(title = "Plan") {
-            NazeCard {
-                NazeActionTimeline(
-                    MockData.plan.map { label -> TimelineEntry(label, com.naze.motion.app.ui.components.TimelineItemState.PENDING) }.map { it.label to it.state }
-                )
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        Text("Estimated actions: 6", style = NazeTypography.caption)
-        Spacer(Modifier.height(24.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            NazeButton(text = "Cancel", onClick = onCancel)
-            NazeButton(text = "Run", onClick = onRun, isPrimary = true, leadingIcon = Icons.Rounded.Stop.takeIf { false })
-        }
-    }
-}
-
-/**
  * Precision Execution Console. Current action emphasized, completed muted,
- * pending subtle. Stop Agent always visible.
+ * pending subtle. Stop Agent always visible. Mock data until Phase 5 wiring.
  */
 @Composable
 fun ExecutionScreen(
@@ -82,28 +54,16 @@ fun ExecutionScreen(
     ) {
         item { Spacer(Modifier.height(8.dp)) }
         item {
-            Text("Running workflow", style = NazeTypography.caption)
-            Text(taskName, style = NazeTypography.pageTitle, color = NazeColors.textPrimary)
+            Column {
+                Text("Running workflow", style = NazeTypography.caption)
+                Text(taskName, style = NazeTypography.pageTitle, color = NazeColors.textPrimary)
+            }
         }
         item {
             NazeCard {
                 Column {
-                    timeline.forEach { entry ->
-                        androidx.compose.foundation.layout.Row(
-                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        ) {
-                            Text(
-                                entry.label,
-                                style = NazeTypography.body.copy(
-                                    color = when (entry.state) {
-                                        com.naze.motion.app.ui.components.TimelineItemState.SUCCESS -> NazeColors.textMuted
-                                        com.naze.motion.app.ui.components.TimelineItemState.ACTIVE -> NazeColors.textPrimary
-                                        else -> NazeColors.textDisabled
-                                    }
-                                )
-                            )
-                        }
+                    timeline.forEachIndexed { i, entry ->
+                        NazeActionRow(index = i + 1, label = entry.label, state = entry.state)
                     }
                 }
             }
@@ -120,7 +80,10 @@ fun ExecutionScreen(
                     )
                     Spacer(Modifier.height(12.dp))
                     Text("Current action", style = NazeTypography.caption, color = NazeColors.textMuted)
-                    Text(timeline.getOrNull(currentIndex)?.label ?: "Finishing", style = NazeTypography.body.copy(color = NazeColors.textPrimary))
+                    Text(
+                        timeline.getOrNull(currentIndex)?.label ?: "Finishing",
+                        style = NazeTypography.body.copy(color = NazeColors.textPrimary),
+                    )
                 }
             }
         }
