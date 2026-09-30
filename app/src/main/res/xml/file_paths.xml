@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Phase 20: exported run logs live in the app cache directory and are
+     shared one at a time through FileProvider. -->
+<paths>
+    <cache-path name="exports" path="exports/" />
+</paths>

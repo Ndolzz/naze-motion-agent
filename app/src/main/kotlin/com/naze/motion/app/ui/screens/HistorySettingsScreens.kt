@@ -1,5 +1,6 @@
 package com.naze.motion.app.ui.screens
 
+import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings as SettingsIcon
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -43,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import com.naze.motion.app.agent.AgentRunUi
 import com.naze.motion.app.agent.ApiKeyStore
 import com.naze.motion.core.access.AccessibilityConnection
@@ -56,6 +59,7 @@ import com.naze.motion.app.ui.components.NazeTextField
 import com.naze.motion.app.ui.theme.NazeColors
 import com.naze.motion.app.ui.theme.NazeShapes
 import com.naze.motion.app.ui.theme.NazeTypography
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -189,6 +193,7 @@ fun WorkflowDetailScreen(
     onBack: () -> Unit,
     onDeleteRun: (() -> Unit)? = null,
 ) {
+    val context = LocalContext.current
     var confirmDelete by remember { mutableStateOf(false) }
 
     LazyColumn(
@@ -275,13 +280,22 @@ fun WorkflowDetailScreen(
                 }
             }
         }
-        if (onDeleteRun != null) {
-            item {
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Phase 20: export the run log as a text file and hand it
+                // to the system share sheet.
                 NazeButton(
-                    text = "Delete run",
-                    onClick = { confirmDelete = true },
-                    leadingIcon = Icons.Rounded.DeleteOutline,
+                    text = "Export log",
+                    onClick = { runCatching { exportRunLog(context, run) } },
+                    leadingIcon = Icons.Rounded.Share,
                 )
+                if (onDeleteRun != null) {
+                    NazeButton(
+                        text = "Delete run",
+                        onClick = { confirmDelete = true },
+                        leadingIcon = Icons.Rounded.DeleteOutline,
+                    )
+                }
             }
         }
         item { Spacer(Modifier.height(32.dp)) }
@@ -312,6 +326,63 @@ fun WorkflowDetailScreen(
     }
 }
 
+/**
+ * Phase 20 export: writes the full run report (instruction, outcome,
+ * stats, plan timeline, and technical log) to a text file in the app
+ * cache and shares it through the system sheet via FileProvider. The
+ * file lives in app private cache storage; only the share target
+ * receives a temporary read grant.
+ */
+private fun exportRunLog(context: Context, run: AgentRunUi) {
+    val dir = File(context.cacheDir, "exports").apply { mkdirs() }
+    val file = File(dir, "naze-run-" + run.id + ".txt")
+    file.writeText(buildRunLogText(run))
+    val uri = FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
+    val share = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        putExtra(Intent.EXTRA_SUBJECT, "Naze Motion run " + run.id + " log")
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(Intent.createChooser(share, "Share run log"))
+}
+
+/** Plain text report of one persisted run (Phase 20). */
+private fun buildRunLogText(run: AgentRunUi): String {
+    val builder = StringBuilder()
+    builder.appendLine("Naze Motion run report")
+    builder.appendLine()
+    builder.appendLine("Instruction: " + run.instruction)
+    builder.appendLine("Outcome: " + run.outcome)
+    if (run.reason != null) {
+        builder.appendLine("Reason: " + run.reason)
+    }
+    builder.appendLine(
+        "Actions: " + run.completedCount + " of " + run.actionCount + " completed",
+    )
+    builder.appendLine("Duration: " + formatDuration(run.durationMs))
+    builder.appendLine("Ended: " + formatEnded(run.endedAtMs))
+    builder.appendLine()
+    builder.appendLine("Plan timeline:")
+    if (run.planSteps.isEmpty()) {
+        builder.appendLine("  (no plan steps recorded)")
+    } else {
+        run.planSteps.forEach { (label, state) ->
+            builder.appendLine("  [" + state.name + "] " + label)
+        }
+    }
+    builder.appendLine()
+    builder.appendLine("Technical log:")
+    if (run.logLines.isEmpty()) {
+        builder.appendLine("  (no log events recorded)")
+    } else {
+        run.logLines.forEach { (time, type) ->
+            builder.appendLine("  " + time + " " + type)
+        }
+    }
+    return builder.toString()
+}
+
 private fun formatDuration(ms: Long): String {
     val totalSeconds = ms / 1000
     val minutes = totalSeconds / 60
@@ -336,7 +407,7 @@ private fun DetailRow(label: String, value: String) {
 }
 
 /**
- * Settings (Phase 12 to 19): API keys are entered here, inside the app,
+ * Settings (Phase 12 to 20): API keys are entered here, inside the app,
  * and stay on this device. Keys are masked by default, stored in app
  * private storage, and used only for the selected provider. The Test
  * button verifies the current configuration with one real planning call
@@ -637,7 +708,7 @@ fun SettingsScreen() {
             NazeCard {
                 Column {
                     Text("About", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Version", "0.19.0")
+                    DetailRow("Version", "0.20.0")
                     DetailRow("Open source licenses", "View")
                 }
             }
