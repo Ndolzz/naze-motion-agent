@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings as SettingsIcon
 import androidx.compose.material.icons.rounded.Share
@@ -192,6 +193,7 @@ fun WorkflowDetailScreen(
     run: AgentRunUi,
     onBack: () -> Unit,
     onDeleteRun: (() -> Unit)? = null,
+    onRunAgain: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var confirmDelete by remember { mutableStateOf(false) }
@@ -282,6 +284,15 @@ fun WorkflowDetailScreen(
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Phase 21: rerun this run's instruction with one tap.
+                if (onRunAgain != null) {
+                    NazeButton(
+                        text = "Run again",
+                        onClick = { onRunAgain(run.instruction) },
+                        isPrimary = true,
+                        leadingIcon = Icons.Rounded.Refresh,
+                    )
+                }
                 // Phase 20: export the run log as a text file and hand it
                 // to the system share sheet.
                 NazeButton(
@@ -407,7 +418,7 @@ private fun DetailRow(label: String, value: String) {
 }
 
 /**
- * Settings (Phase 12 to 20): API keys are entered here, inside the app,
+ * Settings (Phase 12 to 21): API keys are entered here, inside the app,
  * and stay on this device. Keys are masked by default, stored in app
  * private storage, and used only for the selected provider. The Test
  * button verifies the current configuration with one real planning call
@@ -708,7 +719,7 @@ fun SettingsScreen() {
             NazeCard {
                 Column {
                     Text("About", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Version", "0.20.0")
+                    DetailRow("Version", "0.21.0")
                     DetailRow("Open source licenses", "View")
                 }
             }
