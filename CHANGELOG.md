@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.23.0] PHASE 23
+### Added
+- Allowed applications allowlist: a new AllowedApps model in core/domain holds the list of applications the agent may open and drive, with structural package name validation, deduplication, and a bounded list size. The default list contains Alight Motion only.
+- Preflight enforcement: before every run, the runtime checks that the target application is on the allowed list and refuses the run with a clear reason when it is not, on top of the existing service and installed checks.
+- Allowed applications editor in Settings: a dedicated card lists the allowed packages with a Remove action each, plus an Add field that validates the entered package name before storing it; an empty list is allowed and every run is refused until at least one app is allowed again. The values live on this device only.
+- 7 JVM tests for the allowlist model (validation, dedupe, bounds, default, removal).
+### Changed
+- app version 0.23.0.
+
 ## [0.22.0] PHASE 22
 ### Added
 - Configurable safety settings: a new ExecutionProfile in core/domain holds the safety caps for a run (action timeout, retry limit per action, recovery attempts, recovery backoff base) as upper bounds. The execution engine applies the profile to every action: an action can never wait longer or retry more than the configured limits, and the bounded recovery attempts and backoff come from the profile when no recovery manager is injected.
@@ -18,7 +27,7 @@
 ## [0.20.0] PHASE 20
 ### Added
 - Export run log: the workflow detail screen gains an Export log button
-that writes a plain text report of the run (instruction, outcome, reason, action counts, duration, end time, plan timeline, and the full technical log) to the app cache and hands it to the system share sheet through a FileProvider, with only a temporary read grant for the chosen target.
+that writes a plain text report of the run (instruction, outcome, reason, action counts, duration, end time, plan timeline, and the full technical log) to the app ca che and hands it to the system share sheet through a FileProvider, with only a temporary read grant for the chosen target.
 - Run confirmation dialog: pressing RUN now asks for an explicit
 confirmation before the agent takes over the device, consistent with the existing confirmation pattern for destructive actions.
 - Auto launch of the target app: after the preflight check passes, the
@@ -52,8 +61,8 @@ version 0.18.0.
 ### Added
 - Plan timeline replay: the validated plan steps and their final states are
 now persisted with every run, and the workflow detail screen renders the real action timeline of the finished run instead of only the raw log.
-- Confirmation dialogs: Clear all on the History screen and Delete run on
-the detail screen both ask before deleting, since these actions cannot be undone.
+- Confirmation dialogs: Clear all on the History scree
+n and Delete run on the detail screen both ask before deleting, since these actions cannot be undone.
 ### Changed
 - History database schema version 2 with a plan steps column; the table is
 recreated on upgrade because run history is disposable local diagnostics.
@@ -84,7 +93,7 @@ field is ignored by the server and which base URL to use on the Android emulator
 ## [0.14.0] PHASE 14
 ### Added
 - Live execution timeline: the console renders the real validated plan.
-MotionAgent gains an optional onPlan callback invoked after planning and before execution; the runtime maps each action to a short label and the structured engine log drives per step states (active, success, recovering, failed) as events arrive.
+MotionAgent gains an optional onPlan callback invoked after planning and before execution; the runtime maps each action to a short la bel and the structured engine log drives per step states (active, success, recovering, failed) as events arrive.
 - Test button in Settings: verifies the current key, model, and base URL
 with one real planning call before saving, with an inline success or failure message (ApiKeyStore.testConfig).
 ### Changed
@@ -146,7 +155,7 @@ mock state; the status bar reflects the real accessibility connection.
 - STOP AGENT and the execution close button cancel the run through the
 cancellation token (Emergency Stop, NMA-SEC-008/009).
 - settings.gradle.kts now includes :core:adapter, :core:ai, and :core:agent,
-and CI runs their tests alongside the other core modules.
+and CI runs their tests alongside the other cor e modules.
 - app version 0.11.0.
 
 ## [0.7.0] PHASE 7
@@ -188,7 +197,7 @@ can finish a plan in a terminal state.
 ## [0.3.0] PHASE 10 UI PREVIEW
 ### Added
 - Precision Studio design system: NazeColors, NazeTypography, NazeSpacing,
-NazeShapes, NazeAnimations tokens.
+NazeShapes, NazeAnim ations tokens.
 - Reusable component library: buttons, cards, sections, text field,
 status label, status dot, divider, empty state, action timeline, action row, monospace log, progress.
 - Screens: Agent dashboard, Planning, Execution console, History,

@@ -25,10 +25,11 @@
 | 20 | Run confirmation + auto launch target + export run log | done |
 | 21 | Run again from history + getting started guide | done |
 | 22 | Configurable safety settings (ExecutionProfile) | done |
+| 23 | Allowed applications allowlist | done |
 
 Phase 7 note: core/access is an Android library holding MotionAccessibilityService, AndroidAccessibilityDriver, AccessibilityTargetResolver, and AccessibilityObservationProvider. The service is user enabled in system settings; a disconnect surfaces as a typed failure, never a crash. The service manifest entry lives in the core/access library manifest and is merged into the app at build time.
 
-Phase 5 note: the engine runs observe, execute, verify, recover with bounded retry and recovery, timeout enforcement, cancellation checks at every boundary, and a structured event log. The state table allows VERIFYING to COMPLETED so a finished plan reaches a terminal state legally.
+Phase 5 note: the engine runs observe, execute, verify, recover with bounded retry and recovery, timeout enforcement, cancellation checks at every boundary, and a structured event log. The state table allows VERIFYING to COMPLE TED so a finished plan reaches a terminal state legally.
 
 Phase 6 note: FakeAutomationDriver and FakeTargetResolver live in the engine module as deterministic doubles for tests and previews.
 
@@ -57,3 +58,5 @@ Phase 20 note: pressing RUN asks for an explicit confirmation before the agent t
 Phase 21 note: the workflow detail screen gains a Run again button that re-issues the stored instruction through the normal start flow (preflight, confirmation dialog, auto launch of the target app), so repeating a past run is one tap instead of retyping the instruction. While the accessibility service is not connected, the dashboard renders a numbered getting started guide (enable MotionAccessibilityService, open Alight Motion, run the first instruction) instead of leaving the status area empty, and the guide disappears as soon as the service connects.
 
 Phase 22 note: the safety limits are no longer hardcoded in the engine. ExecutionProfile in core/domain defines the caps for a run (action timeout, retry limit per action, recovery attempts, recovery backoff base) as upper bounds, with validation at construction and a clamped factory for raw user input. The engine applies the profile to every action (effective timeout and retry count are the minimum of the action's own policy and the profile) and builds its bounded recovery from the profile when no manager is injected, so tests can still inject deterministic doubles. The Settings Automation card edits the values, SafetySettingsStore persists them on the device only, and AgentRuntime passes the loaded profile to every run.
+
+Phase 23 note: the applications the agent may open are now an explicit allowlist instead of a hardcoded assumption. AllowedApps in core/domain is pure data with structural package name validation (lowercase dot separated segments), deduplication, a bounded size, and a default of Alight Motion only. AllowedAppsStore persists the list on the device, the Settings screen edits it (add with validation, remove, empty list allowed and honestly explained), and the AgentRuntime preflight refuses a run whose target is not on the list with a clear reason. Allowing an app does not create an adapter for it: today the agent still drives Alight Motion only, and the editor says so.
