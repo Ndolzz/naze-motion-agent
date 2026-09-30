@@ -23,14 +23,15 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * AgentRuntime (Phase 11 to 16): the real wiring between the UI and the
+ * AgentRuntime (Phase 11 to 17): the real wiring between the UI and the
  * core pipeline. The dashboard starts a real run through MotionAgent over
  * AndroidAccessibilityDriver, AccessibilityTargetResolver, and
  * AlightMotionAdapter. The planner provider is built from ApiKeyStore.
- * Every finished run is persisted to the local Room database, and single
- * runs or the whole history can be deleted (Phase 16). The execution
- * console renders a live timeline built from the validated plan and
- * updated from the structured engine log (Phase 14).
+ * Every finished run is persisted to the local Room database together with
+ * its plan timeline and log (Phase 17), and single runs or the whole
+ * history can be deleted (Phase 16). The execution console renders a live
+ * timeline built from the validated plan and updated from the structured
+ * engine log (Phase 14).
  */
 class AgentRuntime(context: Context) {
 
@@ -204,6 +205,7 @@ class AgentRuntime(context: Context) {
                 durationMs = durationMs,
                 endedAtMs = System.currentTimeMillis(),
                 logText = logLines.value.joinToString("\n") { it.first + "|" + it.second },
+                planText = planSteps.value.joinToString("\n") { it.first + "|" + it.second.name },
             )
         )
     }
@@ -234,6 +236,17 @@ class AgentRuntime(context: Context) {
         completedCount = completedCount,
         durationMs = durationMs,
         endedAtMs = endedAtMs,
+        planSteps = planText.split('\n')
+            .filter { it.isNotBlank() }
+            .map { line ->
+                val parts = line.split('|', limit = 2)
+                if (parts.size == 2) {
+                    parts[0] to (runCatching { TimelineItemState.valueOf(parts[1]) }
+                        .getOrDefault(TimelineItemState.PENDING))
+                } else {
+                    line to TimelineItemState.PENDING
+                }
+            },
         logLines = logText.split('\n')
             .filter { it.isNotBlank() }
             .map { line ->

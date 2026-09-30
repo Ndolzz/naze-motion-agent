@@ -9,12 +9,14 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.naze.motion.app.ui.components.TimelineItemState
 import kotlinx.coroutines.flow.Flow
 
 /**
- * One finished agent run (Phase 13). Persisted locally so History shows
+ * One finished agent run (Phase 13/17). Persisted locally so History shows
  * real executions instead of mock data. The log is stored as compact
- * "time|event" lines so the detail screen can replay it.
+ * "time|event" lines and the plan timeline as "label|state" lines so the
+ * detail screen can replay both.
  */
 @Entity(tableName = "agent_runs")
 data class AgentRunEntity(
@@ -27,6 +29,7 @@ data class AgentRunEntity(
     val durationMs: Long,
     val endedAtMs: Long,
     val logText: String,
+    val planText: String,
 )
 
 @Dao
@@ -44,7 +47,7 @@ interface AgentRunDao {
     suspend fun clearAll()
 }
 
-@Database(entities = [AgentRunEntity::class], version = 1, exportSchema = false)
+@Database(entities = [AgentRunEntity::class], version = 2, exportSchema = false)
 abstract class HistoryDatabase : RoomDatabase() {
     abstract fun agentRunDao(): AgentRunDao
 
@@ -58,7 +61,12 @@ abstract class HistoryDatabase : RoomDatabase() {
                     context.applicationContext,
                     HistoryDatabase::class.java,
                     "naze_history.db",
-                ).build().also { instance = it }
+                )
+                    // Phase 17: plan steps column added. Run history is local
+                    // diagnostics data, so the schema bump recreates the table
+                    // instead of carrying a hand written migration.
+                    .fallbackToDestructiveMigration()
+                    .build().also { instance = it }
             }
     }
 }
@@ -73,5 +81,6 @@ data class AgentRunUi(
     val completedCount: Int,
     val durationMs: Long,
     val endedAtMs: Long,
+    val planSteps: List<Pair<String, TimelineItemState>>,
     val logLines: List<Pair<String, String>>,
 )
