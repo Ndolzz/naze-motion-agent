@@ -16,20 +16,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * AgentRuntime (Phase 11/12): the real wiring between the UI and the core
- * pipeline. The dashboard starts a real run through MotionAgent over
+ * AgentRuntime (Phase 11/12/13): the real wiring between the UI and the
+ * core pipeline. The dashboard starts a real run through MotionAgent over
  * AndroidAccessibilityDriver, AccessibilityTargetResolver, and
- * AlightMotionAdapter. The planner provider is built from ApiKeyStore:
- * the selected in app configured network provider when its key is present,
- * otherwise the deterministic LocalTemplateProvider. The structured engine
- * log streams live into the execution console.
+ * AlightMotionAdapter. The planner provider is built from ApiKeyStore.
+ * Every finished run is persisted to the local Room database and History
+ * screens render from that real data (Phase 13).
  */
 class AgentRuntime(context: Context) {
 
     private val store = ApiKeyStore(context)
+    private val dao = HistoryDatabase.get(context).agentRunDao()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var token: AgentCancellationToken? = null
 
@@ -39,9 +40,15 @@ class AgentRuntime(context: Context) {
     val statusConnected = MutableStateFlow(false)
     val taskName = MutableStateFlow("")
     val logLines = MutableStateFlow<List<Pair<String, String>>>(emptyList())
+    val history = MutableStateFlow<List<AgentRunUi>>(emptyList())
 
     init {
         statusConnected.value = AccessibilityConnection.connected
+        scope.launch {
+            dao.observeRuns().collectLatest { runs ->
+                history.value = runs.map { it.toUi() }
+            }
+        }
     }
 
     fun start(instruction: String) {
@@ -67,28 +74,80 @@ class AgentRuntime(context: Context) {
             }
             val agent = MotionAgent(AiPlanner(store.activeProvider()), adapter, engine)
             val result = agent.run(clean, driver, resolver, cancellationToken)
-            applyResult(result)
+            applyResult(clean, result)
             statusConnected.value = AccessibilityConnection.connected
         }
     }
 
-    private fun applyResult(result: AgentResult) {
+    private suspend fun applyResult(instruction: String, result: AgentResult) {
+        val outcome: String
+        val reason: String?
+        val actionCount: Int
+        val completedCount: Int
+        val durationMs: Long
         when (result) {
             is AgentResult.Completed -> {
                 currentStep.value = result.summary.completedActionIds.size
                 uiState.value = AgentUiState.Completed
+                outcome = "Completed"
+                reason = null
+                actionCount = result.summary.completedActionIds.size
+                completedCount = result.summary.completedActionIds.size
+                durationMs = result.summary.durationMs
             }
-            is AgentResult.Failed ->
+            is AgentResult.Failed -> {
                 uiState.value = AgentUiState.Failed(result.summary.error?.message ?: "execution failed")
-            is AgentResult.Cancelled ->
+                outcome = "Failed"
+                reason = result.summary.error?.message
+                actionCount = result.summary.completedActionIds.size + 1
+                completedCount = result.summary.completedActionIds.size
+                durationMs = result.summary.durationMs
+            }
+            is AgentResult.Cancelled -> {
                 uiState.value = AgentUiState.Cancelled
-            is AgentResult.PlanningFailed ->
+                outcome = "Cancelled"
+                reason = result.summary.error?.message
+                actionCount = result.summary.completedActionIds.size
+                completedCount = result.summary.completedActionIds.size
+                durationMs = result.summary.durationMs
+            }
+            is AgentResult.PlanningFailed -> {
                 uiState.value = AgentUiState.Failed(result.error.message)
-            is AgentResult.TargetUnavailable ->
+                outcome = "Failed"
+                reason = "planning: " + result.error.message
+                actionCount = 0
+                completedCount = 0
+                durationMs = 0
+            }
+            is AgentResult.TargetUnavailable -> {
                 uiState.value = AgentUiState.Failed("target app unavailable: " + result.packageName)
-            is AgentResult.InvalidInstruction ->
+                outcome = "Failed"
+                reason = "target app unavailable: " + result.packageName
+                actionCount = 0
+                completedCount = 0
+                durationMs = 0
+            }
+            is AgentResult.InvalidInstruction -> {
                 uiState.value = AgentUiState.Failed(result.reason)
+                outcome = "Failed"
+                reason = result.reason
+                actionCount = 0
+                completedCount = 0
+                durationMs = 0
+            }
         }
+        dao.insert(
+            AgentRunEntity(
+                instruction = instruction,
+                outcome = outcome,
+                reason = reason,
+                actionCount = actionCount,
+                completedCount = completedCount,
+                durationMs = durationMs,
+                endedAtMs = System.currentTimeMillis(),
+                logText = logLines.value.joinToString("\n") { it.first + "|" + it.second },
+            )
+        )
     }
 
     /** Emergency Stop (NMA-SEC-008/009): cancel the run but keep the console open. */
@@ -107,6 +166,23 @@ class AgentRuntime(context: Context) {
         token?.cancel()
         scope.cancel()
     }
+
+    private fun AgentRunEntity.toUi(): AgentRunUi = AgentRunUi(
+        id = id,
+        instruction = instruction,
+        outcome = outcome,
+        reason = reason,
+        actionCount = actionCount,
+        completedCount = completedCount,
+        durationMs = durationMs,
+        endedAtMs = endedAtMs,
+        logLines = logText.split('\n')
+            .filter { it.isNotBlank() }
+            .map { line ->
+                val parts = line.split('|', limit = 2)
+                if (parts.size == 2) parts[0] to parts[1] else "" to line
+            },
+    )
 
     private fun formatTime(ms: Long): String {
         val totalSeconds = (ms / 1000) % 86_400

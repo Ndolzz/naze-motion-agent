@@ -15,6 +15,7 @@
 | 10 | Precision Studio UI with mock state | done (mock preview) |
 | 11 | End to end flow | done |
 | 12 | In app multi provider API keys + network providers | done |
+| 13 | Persistent run history | done |
 
 Phase 7 note: core/access is an Android library holding
 MotionAccessibilityService, AndroidAccessibilityDriver,
@@ -54,3 +55,9 @@ request, endpoint, header, and response handling are pure functions covered
 by JVM tests. The planner falls back to LocalTemplateProvider whenever the
 selected provider has no complete configuration, so a missing key never
 breaks a run silently.
+
+Phase 13 note: every finished run is persisted to a local Room database
+(instruction, outcome, reason, action counts, duration, end time, and the
+structured engine log). The History screen and the workflow detail screen
+render from that real data instead of mock entries; the detail screen replays
+the actual technical log of the run.

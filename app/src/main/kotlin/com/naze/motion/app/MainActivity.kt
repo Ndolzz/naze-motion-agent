@@ -65,8 +65,8 @@ private enum class Destination(val label: String) {
 @Composable
 fun NazeMotionApp() {
     var destination by remember { mutableStateOf(Destination.AGENT) }
-    var detailName by remember { mutableStateOf<String?>(null) }
-    // Phase 11/12: real runtime state replaces the mock execution preview.
+    var detailId by remember { mutableStateOf<Long?>(null) }
+    // Phase 11/12/13: real runtime state replaces the mock execution preview.
     val context = LocalContext.current
     val runtime = remember { AgentRuntime(context.applicationContext) }
     val executionActive by runtime.executionActive.collectAsState()
@@ -74,6 +74,7 @@ fun NazeMotionApp() {
     val currentIndex by runtime.currentStep.collectAsState()
     val statusConnected by runtime.statusConnected.collectAsState()
     val taskName by runtime.taskName.collectAsState()
+    val history by runtime.history.collectAsState()
 
     DisposableEffect(Unit) {
         onDispose { runtime.shutdown() }
@@ -93,7 +94,7 @@ fun NazeMotionApp() {
                 NavItem(
                     label = dest.label,
                     selected = destination == dest && !executionActive,
-                    onClick = { destination = dest; detailName = null },
+                    onClick = { destination = dest; detailId = null },
                 )
             }
         }
@@ -111,13 +112,17 @@ fun NazeMotionApp() {
                     onStartTask = { runtime.start(it) },
                     onOpenHistory = { destination = Destination.HISTORY },
                 )
-                destination == Destination.HISTORY && detailName != null -> WorkflowDetailScreen(
-                    name = detailName!!,
-                    onBack = { detailName = null },
-                )
-                destination == Destination.HISTORY -> HistoryScreen(onOpenDetail = { detailName = it })
+                detailId != null && history.firstOrNull { it.id == detailId } != null ->
+                    WorkflowDetailScreen(
+                        run = history.first { it.id == detailId },
+                        onBack = { detailId = null },
+                    )
+                destination == Destination.HISTORY || destination == Destination.WORKFLOWS ->
+                    HistoryScreen(
+                        runs = history,
+                        onOpenDetail = { detailId = it },
+                    )
                 destination == Destination.SETTINGS -> SettingsScreen()
-                destination == Destination.WORKFLOWS -> HistoryScreen(onOpenDetail = { detailName = it })
             }
         }
     }

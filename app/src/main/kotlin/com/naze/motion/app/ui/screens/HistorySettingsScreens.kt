@@ -15,7 +15,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Key
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
@@ -34,37 +33,55 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.naze.motion.app.agent.AgentRunUi
 import com.naze.motion.app.agent.ApiKeyStore
 import com.naze.motion.app.ui.components.NazeButton
 import com.naze.motion.app.ui.components.NazeCard
+import com.naze.motion.app.ui.components.NazeEmptyState
+import com.naze.motion.app.ui.components.NazeLog
 import com.naze.motion.app.ui.components.NazeStatusLabel
 import com.naze.motion.app.ui.components.NazeTextField
-import com.naze.motion.app.ui.model.MockData
 import com.naze.motion.app.ui.theme.NazeColors
 import com.naze.motion.app.ui.theme.NazeShapes
 import com.naze.motion.app.ui.theme.NazeTypography
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-/** Compact activity log, not big cards. */
+/** Compact activity log over persisted runs, not big cards. */
 @Composable
-fun HistoryScreen(onOpenDetail: (String) -> Unit) {
+fun HistoryScreen(runs: List<AgentRunUi>, onOpenDetail: (Long) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item { Spacer(Modifier.height(8.dp)) }
         item { Text("History", style = NazeTypography.pageTitle, color = NazeColors.textPrimary) }
-        items(MockData.history) { item ->
-            NazeCard(padding = 12.dp, onClick = { onOpenDetail(item.name) }) {
+        if (runs.isEmpty()) {
+            item {
+                NazeEmptyState(
+                    title = "No runs yet",
+                    description = "Finished agent runs appear here with their full technical log.",
+                    icon = Icons.Rounded.History,
+                )
+            }
+        }
+        items(runs) { run ->
+            NazeCard(padding = 12.dp, onClick = { onOpenDetail(run.id) }) {
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column {
-                        Text(item.name, style = NazeTypography.body.copy(color = NazeColors.textPrimary))
+                        Text(
+                            run.instruction,
+                            style = NazeTypography.body.copy(color = NazeColors.textPrimary),
+                            maxLines = 1,
+                        )
                         NazeStatusLabel(
-                            label = item.outcome + " " + item.time,
-                            color = if (item.completed) NazeColors.success else NazeColors.error,
-                            icon = if (item.completed) Icons.Rounded.Check else Icons.Rounded.ErrorOutline,
+                            label = run.outcome + " " + formatEnded(run.endedAtMs),
+                            color = if (run.outcome == "Completed") NazeColors.success else NazeColors.error,
+                            icon = if (run.outcome == "Completed") Icons.Rounded.Check else Icons.Rounded.ErrorOutline,
                         )
                     }
                 }
@@ -74,9 +91,9 @@ fun HistoryScreen(onOpenDetail: (String) -> Unit) {
     }
 }
 
-/** Workflow detail with compact stats and timeline. */
+/** Workflow detail from a persisted run: real stats and real log. */
 @Composable
-fun WorkflowDetailScreen(name: String, onBack: () -> Unit) {
+fun WorkflowDetailScreen(run: AgentRunUi, onBack: () -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -84,38 +101,56 @@ fun WorkflowDetailScreen(name: String, onBack: () -> Unit) {
         item { Spacer(Modifier.height(8.dp)) }
         item {
             Column {
-                Text(name, style = NazeTypography.pageTitle, color = NazeColors.textPrimary)
+                Text(run.instruction, style = NazeTypography.pageTitle, color = NazeColors.textPrimary)
                 Spacer(Modifier.height(4.dp))
-                NazeStatusLabel(label = "Completed", color = NazeColors.success, icon = Icons.Rounded.Check)
+                NazeStatusLabel(
+                    label = run.outcome,
+                    color = when (run.outcome) {
+                        "Completed" -> NazeColors.success
+                        "Cancelled" -> NazeColors.textMuted
+                        else -> NazeColors.error
+                    },
+                    icon = if (run.outcome == "Completed") Icons.Rounded.Check else Icons.Rounded.ErrorOutline,
+                )
             }
         }
         item {
             NazeCard {
                 Column {
-                    DetailRow("Duration", "01:42")
-                    DetailRow("Actions", "8")
+                    DetailRow("Duration", formatDuration(run.durationMs))
+                    DetailRow("Actions", run.completedCount.toString() + " of " + run.actionCount + " completed")
+                    DetailRow("Ended", formatEnded(run.endedAtMs))
                     DetailRow("Application", "Alight Motion")
+                    if (run.reason != null) {
+                        DetailRow("Reason", run.reason)
+                    }
                 }
             }
         }
         item {
             Column {
-                Text("Timeline", style = NazeTypography.section, color = NazeColors.textPrimary)
+                Text("Technical log", style = NazeTypography.section, color = NazeColors.textPrimary)
                 Spacer(Modifier.height(8.dp))
-                MockData.plan.forEach { step ->
-                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                        Icon(
-                            Icons.Rounded.Check,
-                            contentDescription = "completed",
-                            tint = NazeColors.success,
-                        )
-                        Spacer(Modifier.padding(4.dp))
-                        Text(step, style = NazeTypography.body)
-                    }
+                if (run.logLines.isEmpty()) {
+                    Text("No log events recorded.", style = NazeTypography.body, color = NazeColors.textMuted)
+                } else {
+                    NazeLog(run.logLines)
                 }
             }
         }
     }
+}
+
+private fun formatDuration(ms: Long): String {
+    val totalSeconds = ms / 1000
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%02d:%02d".format(minutes, seconds)
+}
+
+private fun formatEnded(endedAtMs: Long): String {
+    val format = SimpleDateFormat("HH:mm", Locale.getDefault())
+    return format.format(Date(endedAtMs))
 }
 
 @Composable
@@ -321,7 +356,7 @@ fun SettingsScreen() {
             NazeCard {
                 Column {
                     Text("About", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Version", "0.12.0")
+                    DetailRow("Version", "0.13.0")
                     DetailRow("Open source licenses", "View")
                 }
             }

@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     kotlin("android")
     id("org.jetbrains.kotlin.plugin.compose")
+    kotlin("kapt")
 }
 
 android {
@@ -12,8 +13,8 @@ android {
         applicationId = "com.naze.motion.agent"
         minSdk = 26
         targetSdk = 34
-        versionCode = 6
-        versionName = "0.12.0"
+        versionCode = 7
+        versionName = "0.13.0"
     }
 
     buildTypes {
@@ -43,6 +44,10 @@ dependencies {
     implementation(project(":core:agent"))
     implementation(project(":core:access"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
 
     val composeBom = platform("androidx.compose:compose-bom:2024.09.03")
     implementation(composeBom)

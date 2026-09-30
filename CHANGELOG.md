@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.13.0] PHASE 13
+### Added
+- Persistent run history: every finished agent run is stored in a local
+  Room database with its instruction, outcome, failure reason, action
+  counts, duration, end time, and the structured engine log.
+- HistoryDatabase with AgentRunEntity, AgentRunDao, and a singleton
+  database builder; the DAO exposes the runs as a Flow.
+- AgentRuntime now exposes a history StateFlow fed from the database and
+  inserts a record for every terminal run result.
+- The History screen lists real persisted runs (empty state when none) and
+  the workflow detail screen shows real stats and replays the actual
+  technical log of the selected run.
+### Changed
+- Navigation keeps the selected run id instead of a mock name; the detail
+  screen is found from the live history list.
+- MockData history and recent workflow entries are no longer shown on the
+  History screens.
+- app version 0.13.0.
+
 ## [0.12.0] PHASE 12
 ### Added
 - In app API key management: keys are entered on the Settings screen inside
