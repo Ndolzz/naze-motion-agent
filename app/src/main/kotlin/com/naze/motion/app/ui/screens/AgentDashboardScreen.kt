@@ -8,13 +8,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,9 +38,12 @@ import com.naze.motion.app.ui.theme.NazeColors
 import com.naze.motion.app.ui.theme.NazeTypography
 
 /**
- * Agent dashboard (Phase 18). Input is the focal point, not a wall of
+ * Agent dashboard (Phase 18 to 19). Input is the focal point, not a wall of
  * cards. The summary and the recent workflows list render real persisted
  * runs from the local history database; MockData is no longer used here.
+ * When the preflight check refuses a run (service off or target app
+ * missing), the reason is shown as a dismissible banner under the RUN
+ * button instead of starting a doomed execution.
  */
 @Composable
 fun AgentDashboardScreen(
@@ -45,6 +51,8 @@ fun AgentDashboardScreen(
     onStartTask: (String) -> Unit,
     onOpenDetail: (Long) -> Unit,
     onOpenHistory: () -> Unit,
+    preflightError: String? = null,
+    onDismissPreflight: () -> Unit = {},
 ) {
     var instruction by remember { mutableStateOf("") }
 
@@ -59,7 +67,11 @@ fun AgentDashboardScreen(
     ) {
         item { Spacer(Modifier.height(8.dp)) }
         item {
-            Text("What should I create?", style = NazeTypography.pageTitle, color = NazeColors.textPrimary)
+            Text(
+                "What should I create?",
+                style = NazeTypography.pageTitle,
+                color = NazeColors.textPrimary,
+            )
         }
         item {
             Column {
@@ -74,7 +86,11 @@ fun AgentDashboardScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    NazeStatusLabel(label = "Connected", color = NazeColors.success, icon = Icons.Rounded.PlayArrow)
+                    NazeStatusLabel(
+                        label = "Connected",
+                        color = NazeColors.success,
+                        icon = Icons.Rounded.PlayArrow,
+                    )
                     NazeButton(
                         text = "RUN",
                         onClick = { if (instruction.isNotBlank()) onStartTask(instruction) },
@@ -82,6 +98,35 @@ fun AgentDashboardScreen(
                         isPrimary = true,
                         leadingIcon = Icons.Rounded.PlayArrow,
                     )
+                }
+                if (preflightError != null) {
+                    Spacer(Modifier.height(8.dp))
+                    NazeCard(padding = 12.dp) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(
+                                Icons.Rounded.ErrorOutline,
+                                contentDescription = null,
+                                tint = NazeColors.error,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                preflightError,
+                                style = NazeTypography.caption,
+                                color = NazeColors.error,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(onClick = onDismissPreflight) {
+                                Icon(
+                                    Icons.Rounded.Close,
+                                    contentDescription = "Dismiss",
+                                    tint = NazeColors.textMuted,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -99,7 +144,11 @@ fun AgentDashboardScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                         ) {
-                            Text("Total runs", style = NazeTypography.body, color = NazeColors.textMuted)
+                            Text(
+                                "Total runs",
+                                style = NazeTypography.body,
+                                color = NazeColors.textMuted,
+                            )
                             Text(
                                 totalRuns.toString(),
                                 style = NazeTypography.body.copy(color = NazeColors.textPrimary),
@@ -109,7 +158,11 @@ fun AgentDashboardScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                         ) {
-                            Text("Completed", style = NazeTypography.body, color = NazeColors.textMuted)
+                            Text(
+                                "Completed",
+                                style = NazeTypography.body,
+                                color = NazeColors.textMuted,
+                            )
                             Text(
                                 completedRuns.toString(),
                                 style = NazeTypography.body.copy(color = NazeColors.textPrimary),
@@ -119,11 +172,19 @@ fun AgentDashboardScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                         ) {
-                            Text("Success rate", style = NazeTypography.body, color = NazeColors.textMuted)
+                            Text(
+                                "Success rate",
+                                style = NazeTypography.body,
+                                color = NazeColors.textMuted,
+                            )
                             Text(
                                 successRate.toString() + "%",
                                 style = NazeTypography.body.copy(
-                                    color = if (successRate >= 50) NazeColors.success else NazeColors.warning,
+                                    color = if (successRate >= 50) {
+                                        NazeColors.success
+                                    } else {
+                                        NazeColors.warning
+                                    },
                                 ),
                             )
                         }
@@ -155,16 +216,24 @@ fun AgentDashboardScreen(
                                             maxLines = 1,
                                         )
                                         Text(
-                                            run.completedCount.toString() + " of " + run.actionCount + " actions",
+                                            run.completedCount.toString() + " of " +
+                                                run.actionCount + " actions",
                                             style = NazeTypography.caption,
                                             color = NazeColors.textMuted,
                                         )
                                     }
                                     NazeStatusLabel(
                                         label = run.outcome,
-                                        color = if (run.outcome == "Completed") NazeColors.success else NazeColors.error,
-                                        icon = if (run.outcome == "Completed") Icons.Rounded.Check
-                                        else Icons.Rounded.ErrorOutline,
+                                        color = if (run.outcome == "Completed") {
+                                            NazeColors.success
+                                        } else {
+                                            NazeColors.error
+                                        },
+                                        icon = if (run.outcome == "Completed") {
+                                            Icons.Rounded.Check
+                                        } else {
+                                            Icons.Rounded.ErrorOutline
+                                        },
                                     )
                                 }
                             }

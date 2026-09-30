@@ -139,8 +139,16 @@ fun HistoryScreen(
                         )
                         NazeStatusLabel(
                             label = run.outcome + " " + formatEnded(run.endedAtMs),
-                            color = if (run.outcome == "Completed") NazeColors.success else NazeColors.error,
-                            icon = if (run.outcome == "Completed") Icons.Rounded.Check else Icons.Rounded.ErrorOutline,
+                            color = if (run.outcome == "Completed") {
+                                NazeColors.success
+                            } else {
+                                NazeColors.error
+                            },
+                            icon = if (run.outcome == "Completed") {
+                                Icons.Rounded.Check
+                            } else {
+                                Icons.Rounded.ErrorOutline
+                            },
                         )
                     }
                 }
@@ -154,7 +162,10 @@ fun HistoryScreen(
             onDismissRequest = { confirmClear = false },
             title = { Text("Clear all runs?") },
             text = {
-                Text("Every persisted run and its technical log will be deleted from this device. This cannot be undone.")
+                Text(
+                    "Every persisted run and its technical log will be deleted " +
+                        "from this device. This cannot be undone.",
+                )
             },
             confirmButton = {
                 TextButton(
@@ -187,7 +198,11 @@ fun WorkflowDetailScreen(
         item { Spacer(Modifier.height(8.dp)) }
         item {
             Column {
-                Text(run.instruction, style = NazeTypography.pageTitle, color = NazeColors.textPrimary)
+                Text(
+                    run.instruction,
+                    style = NazeTypography.pageTitle,
+                    color = NazeColors.textPrimary,
+                )
                 Spacer(Modifier.height(4.dp))
                 NazeStatusLabel(
                     label = run.outcome,
@@ -196,14 +211,22 @@ fun WorkflowDetailScreen(
                         "Cancelled" -> NazeColors.textMuted
                         else -> NazeColors.error
                     },
-                    icon = if (run.outcome == "Completed") Icons.Rounded.Check else Icons.Rounded.ErrorOutline,
+                    icon = if (run.outcome == "Completed") {
+                        Icons.Rounded.Check
+                    } else {
+                        Icons.Rounded.ErrorOutline
+                    },
                 )
             }
         }
         item {
             NazeCard {
                 Column {
-                    Text("Plan timeline", style = NazeTypography.section, color = NazeColors.textPrimary)
+                    Text(
+                        "Plan timeline",
+                        style = NazeTypography.section,
+                        color = NazeColors.textPrimary,
+                    )
                     Spacer(Modifier.height(4.dp))
                     if (run.planSteps.isEmpty()) {
                         Text(
@@ -221,7 +244,10 @@ fun WorkflowDetailScreen(
             NazeCard {
                 Column {
                     DetailRow("Duration", formatDuration(run.durationMs))
-                    DetailRow("Actions", run.completedCount.toString() + " of " + run.actionCount + " completed")
+                    DetailRow(
+                        "Actions",
+                        run.completedCount.toString() + " of " + run.actionCount + " completed",
+                    )
                     DetailRow("Ended", formatEnded(run.endedAtMs))
                     DetailRow("Application", "Alight Motion")
                     if (run.reason != null) {
@@ -232,10 +258,18 @@ fun WorkflowDetailScreen(
         }
         item {
             Column {
-                Text("Technical log", style = NazeTypography.section, color = NazeColors.textPrimary)
+                Text(
+                    "Technical log",
+                    style = NazeTypography.section,
+                    color = NazeColors.textPrimary,
+                )
                 Spacer(Modifier.height(8.dp))
                 if (run.logLines.isEmpty()) {
-                    Text("No log events recorded.", style = NazeTypography.body, color = NazeColors.textMuted)
+                    Text(
+                        "No log events recorded.",
+                        style = NazeTypography.body,
+                        color = NazeColors.textMuted,
+                    )
                 } else {
                     NazeLog(run.logLines)
                 }
@@ -257,7 +291,12 @@ fun WorkflowDetailScreen(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text("Delete this run?") },
-            text = { Text("The run and its technical log will be removed from this device. This cannot be undone.") },
+            text = {
+                Text(
+                    "The run and its technical log will be removed from this device. " +
+                        "This cannot be undone.",
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -297,12 +336,13 @@ private fun DetailRow(label: String, value: String) {
 }
 
 /**
- * Settings (Phase 12 to 18): API keys are entered here, inside the app,
+ * Settings (Phase 12 to 19): API keys are entered here, inside the app,
  * and stay on this device. Keys are masked by default, stored in app
  * private storage, and used only for the selected provider. The Test
  * button verifies the current configuration with one real planning call
- * before saving. The Automation card shows the real accessibility service
- * connection state and can open the system accessibility settings.
+ * before saving. The Automation card shows the real accessibility
+ * service connection state and can open the system accessibility
+ * settings.
  */
 @Composable
 fun SettingsScreen() {
@@ -339,7 +379,11 @@ fun SettingsScreen() {
 
         item {
             Column {
-                Text("AI provider", style = NazeTypography.section, color = NazeColors.textPrimary)
+                Text(
+                    "AI provider",
+                    style = NazeTypography.section,
+                    color = NazeColors.textPrimary,
+                )
                 Spacer(Modifier.height(8.dp))
                 ApiKeyStore.catalog.forEach { catalog ->
                     val selected = catalog.id == selectedId
@@ -353,7 +397,11 @@ fun SettingsScreen() {
                             Text(
                                 catalog.label,
                                 style = NazeTypography.body.copy(
-                                    color = if (selected) NazeColors.primary else NazeColors.textPrimary,
+                                    color = if (selected) {
+                                        NazeColors.primary
+                                    } else {
+                                        NazeColors.textPrimary
+                                    },
                                 ),
                             )
                             when {
@@ -387,10 +435,15 @@ fun SettingsScreen() {
             item {
                 NazeCard {
                     Column {
-                        Text(entry.label, style = NazeTypography.section, color = NazeColors.textPrimary)
+                        Text(
+                            entry.label,
+                            style = NazeTypography.section,
+                            color = NazeColors.textPrimary,
+                        )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "The key is stored on this device only and sent only to the configured endpoint.",
+                            "The key is stored on this device only and sent only " +
+                                "to the configured endpoint.",
                             style = NazeTypography.caption,
                             color = NazeColors.textMuted,
                         )
@@ -407,15 +460,24 @@ fun SettingsScreen() {
                             value = apiKey,
                             onValueChange = { apiKey = it },
                             placeholder = {
-                                Text("API key", style = NazeTypography.body, color = NazeColors.textMuted)
+                                Text(
+                                    "API key",
+                                    style = NazeTypography.body,
+                                    color = NazeColors.textMuted,
+                                )
                             },
                             singleLine = true,
                             visualTransformation =
-                                if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+                                if (showKey) VisualTransformation.None
+                                else PasswordVisualTransformation(),
                             trailingIcon = {
                                 IconButton(onClick = { showKey = !showKey }) {
                                     Icon(
-                                        if (showKey) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                                        if (showKey) {
+                                            Icons.Rounded.VisibilityOff
+                                        } else {
+                                            Icons.Rounded.Visibility
+                                        },
                                         contentDescription = if (showKey) "Hide key" else "Show key",
                                         tint = NazeColors.textMuted,
                                     )
@@ -471,7 +533,9 @@ fun SettingsScreen() {
                                     scope.launch {
                                         val result = ApiKeyStore.testConfig(
                                             kind = kind,
-                                            baseUrl = baseUrl.ifBlank { entry.defaultBaseUrl ?: "" },
+                                            baseUrl = baseUrl.ifBlank {
+                                                entry.defaultBaseUrl ?: ""
+                                            },
                                             apiKey = apiKey,
                                             model = model,
                                         )
@@ -502,7 +566,11 @@ fun SettingsScreen() {
                             NazeStatusLabel(
                                 label = testMessage!!,
                                 color = if (testOk) NazeColors.success else NazeColors.error,
-                                icon = if (testOk) Icons.Rounded.Check else Icons.Rounded.ErrorOutline,
+                                icon = if (testOk) {
+                                    Icons.Rounded.Check
+                                } else {
+                                    Icons.Rounded.ErrorOutline
+                                },
                             )
                         }
                         if (saved) {
@@ -521,12 +589,24 @@ fun SettingsScreen() {
         item {
             NazeCard {
                 Column {
-                    Text("Automation", style = NazeTypography.section, color = NazeColors.textPrimary)
+                    Text(
+                        "Automation",
+                        style = NazeTypography.section,
+                        color = NazeColors.textPrimary,
+                    )
                     Spacer(Modifier.height(6.dp))
                     NazeStatusLabel(
                         label = if (serviceConnected) "Service connected" else "Service off",
-                        color = if (serviceConnected) NazeColors.success else NazeColors.error,
-                        icon = if (serviceConnected) Icons.Rounded.Check else Icons.Rounded.ErrorOutline,
+                        color = if (serviceConnected) {
+                            NazeColors.success
+                        } else {
+                            NazeColors.error
+                        },
+                        icon = if (serviceConnected) {
+                            Icons.Rounded.Check
+                        } else {
+                            Icons.Rounded.ErrorOutline
+                        },
                     )
                     Spacer(Modifier.height(6.dp))
                     DetailRow("Action timeout", "5000 ms")
@@ -557,7 +637,7 @@ fun SettingsScreen() {
             NazeCard {
                 Column {
                     Text("About", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Version", "0.18.0")
+                    DetailRow("Version", "0.19.0")
                     DetailRow("Open source licenses", "View")
                 }
             }

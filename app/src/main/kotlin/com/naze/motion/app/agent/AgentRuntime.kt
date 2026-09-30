@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * AgentRuntime (Phase 11 to 17): the real wiring between the UI and the
+ * AgentRuntime (Phase 11 to 19): the real wiring between the UI and the
  * core pipeline. The dashboard starts a real run through MotionAgent over
  * AndroidAccessibilityDriver, AccessibilityTargetResolver, and
  * AlightMotionAdapter. The planner provider is built from ApiKeyStore.
@@ -31,10 +31,14 @@ import kotlinx.coroutines.launch
  * its plan timeline and log (Phase 17), and single runs or the whole
  * history can be deleted (Phase 16). The execution console renders a live
  * timeline built from the validated plan and updated from the structured
- * engine log (Phase 14).
+ * engine log (Phase 14). Phase 19 adds a preflight check before every
+ * run: the accessibility service must be connected and the target app
+ * must be installed, otherwise the run is refused with a clear reason
+ * instead of failing halfway through execution.
  */
 class AgentRuntime(context: Context) {
 
+    private val appContext = context.applicationContext
     private val store = ApiKeyStore(context)
     private val dao = HistoryDatabase.get(context).agentRunDao()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -48,6 +52,7 @@ class AgentRuntime(context: Context) {
     val logLines = MutableStateFlow<List<Pair<String, String>>>(emptyList())
     val planSteps = MutableStateFlow<List<Pair<String, TimelineItemState>>>(emptyList())
     val history = MutableStateFlow<List<AgentRunUi>>(emptyList())
+    val preflightError = MutableStateFlow<String?>(null)
 
     init {
         statusConnected.value = AccessibilityConnection.connected
@@ -62,6 +67,14 @@ class AgentRuntime(context: Context) {
         if (executionActive.value) return
         val clean = instruction.trim()
         if (clean.isEmpty()) return
+        // Phase 19: refuse the run early instead of failing halfway
+        // through execution when the environment is not ready.
+        val blocked = preflight()
+        if (blocked != null) {
+            preflightError.value = blocked
+            return
+        }
+        preflightError.value = null
         val cancellationToken = AgentCancellationToken()
         token = cancellationToken
         executionActive.value = true
@@ -87,20 +100,51 @@ class AgentRuntime(context: Context) {
                         currentStep.value = stepIndex
                         markStep(stepIndex, TimelineItemState.ACTIVE)
                     }
-                    "RECOVERY_STARTED" -> markStep(stepIndex, TimelineItemState.RECOVERING)
-                    "RECOVERY_COMPLETED" -> markStep(stepIndex, TimelineItemState.ACTIVE)
+                    "RECOVERY_STARTED" ->
+                        markStep(stepIndex, TimelineItemState.RECOVERING)
+                    "RECOVERY_COMPLETED" ->
+                        markStep(stepIndex, TimelineItemState.ACTIVE)
                     "EXECUTION_FAILED" -> markStep(stepIndex, TimelineItemState.FAILED)
                 }
             }
             val agent = MotionAgent(AiPlanner(store.activeProvider()), adapter, engine)
             val result = agent.run(clean, driver, resolver, cancellationToken) { plan ->
                 planSteps.value = plan.actions.mapIndexed { index, action ->
-                    describe(action) to if (index == 0) TimelineItemState.ACTIVE else TimelineItemState.PENDING
+                    describe(action) to
+                        if (index == 0) TimelineItemState.ACTIVE
+                        else TimelineItemState.PENDING
                 }
             }
             applyResult(clean, result)
             statusConnected.value = AccessibilityConnection.connected
         }
+    }
+
+    /**
+     * Phase 19 preflight: returns a human readable reason when the run
+     * must be refused, or null when the environment is ready. Checks that
+     * MotionAccessibilityService is connected and that the target
+     * application is installed on this device.
+     */
+    private fun preflight(): String? {
+        statusConnected.value = AccessibilityConnection.connected
+        if (!AccessibilityConnection.connected) {
+            return "Motion accessibility service is off. " +
+                "Enable it in system accessibility settings, then try again."
+        }
+        val targetInstalled = runCatching {
+            appContext.packageManager.getPackageInfo(TARGET_PACKAGE, 0)
+        }.isSuccess
+        if (!targetInstalled) {
+            return "Alight Motion is not installed on this device, " +
+                "so the run has nowhere to execute."
+        }
+        return null
+    }
+
+    /** Dismisses the preflight banner shown by the dashboard (Phase 19). */
+    fun dismissPreflight() {
+        preflightError.value = null
     }
 
     /** Refreshes the cached accessibility connection flag (Phase 16). */
@@ -131,8 +175,10 @@ class AgentRuntime(context: Context) {
             target?.normalizedText != null -> " " + target.normalizedText
             target?.text != null -> " " + target.text
             target?.contentDescription != null -> " " + target.contentDescription
-            action.parameters.containsKey("packageName") -> " " + action.parameters["packageName"]
-            action.parameters.containsKey("durationMs") -> " " + action.parameters["durationMs"] + "ms"
+            action.parameters.containsKey("packageName") ->
+                " " + action.parameters["packageName"]
+            action.parameters.containsKey("durationMs") ->
+                " " + action.parameters["durationMs"] + "ms"
             else -> ""
         }
         return action.type.name + detail
@@ -155,7 +201,9 @@ class AgentRuntime(context: Context) {
                 durationMs = result.summary.durationMs
             }
             is AgentResult.Failed -> {
-                uiState.value = AgentUiState.Failed(result.summary.error?.message ?: "execution failed")
+                uiState.value = AgentUiState.Failed(
+                    result.summary.error?.message ?: "execution failed",
+                )
                 outcome = "Failed"
                 reason = result.summary.error?.message
                 actionCount = result.summary.completedActionIds.size + 1
@@ -179,7 +227,9 @@ class AgentRuntime(context: Context) {
                 durationMs = 0
             }
             is AgentResult.TargetUnavailable -> {
-                uiState.value = AgentUiState.Failed("target app unavailable: " + result.packageName)
+                uiState.value = AgentUiState.Failed(
+                    "target app unavailable: " + result.packageName,
+                )
                 outcome = "Failed"
                 reason = "target app unavailable: " + result.packageName
                 actionCount = 0
@@ -261,5 +311,10 @@ class AgentRuntime(context: Context) {
         val minutes = (totalSeconds / 60) % 60
         val seconds = totalSeconds % 60
         return "%02d:%02d:%02d".format(hours, minutes, seconds)
+    }
+
+    companion object {
+        /** Must match AlightMotionAdapter.packageName. */
+        private const val TARGET_PACKAGE = "com.alightmotion.motion"
     }
 }
