@@ -19,6 +19,7 @@ import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings as SettingsIcon
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -61,7 +62,7 @@ import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** Compact activity log over persisted runs, not big cards. */
+/** Compact activity log over persisted runs, with a simple search filter. */
 @Composable
 fun HistoryScreen(
     runs: List<AgentRunUi>,
@@ -69,6 +70,12 @@ fun HistoryScreen(
     onDeleteAll: (() -> Unit)? = null,
 ) {
     var confirmClear by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+
+    val visible = remember(runs, query) {
+        if (query.isBlank()) runs
+        else runs.filter { it.instruction.contains(query.trim(), ignoreCase = true) }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -91,16 +98,34 @@ fun HistoryScreen(
                 }
             }
         }
-        if (runs.isEmpty()) {
+        if (runs.isNotEmpty()) {
             item {
-                NazeEmptyState(
-                    title = "No runs yet",
-                    description = "Finished agent runs appear here with their full technical log.",
-                    icon = Icons.Rounded.History,
+                NazeTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = "Search instruction",
+                    minLines = 1,
                 )
             }
         }
-        items(runs) { run ->
+        if (visible.isEmpty()) {
+            item {
+                if (runs.isEmpty()) {
+                    NazeEmptyState(
+                        title = "No runs yet",
+                        description = "Finished agent runs appear here with their full technical log.",
+                        icon = Icons.Rounded.History,
+                    )
+                } else {
+                    NazeEmptyState(
+                        title = "No matches",
+                        description = "No persisted run matches the search.",
+                        icon = Icons.Rounded.Search,
+                    )
+                }
+            }
+        }
+        items(visible) { run ->
             NazeCard(padding = 12.dp, onClick = { onOpenDetail(run.id) }) {
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -272,8 +297,8 @@ private fun DetailRow(label: String, value: String) {
 }
 
 /**
- * Settings (Phase 12/14/15/16/17): API keys are entered here, inside the
- * app, and stay on this device. Keys are masked by default, stored in app
+ * Settings (Phase 12 to 18): API keys are entered here, inside the app,
+ * and stay on this device. Keys are masked by default, stored in app
  * private storage, and used only for the selected provider. The Test
  * button verifies the current configuration with one real planning call
  * before saving. The Automation card shows the real accessibility service
@@ -295,8 +320,6 @@ fun SettingsScreen() {
     var testOk by remember { mutableStateOf(false) }
     var serviceConnected by remember { mutableStateOf(AccessibilityConnection.connected) }
 
-    // Keep the service state fresh while Settings is visible, including
-    // after the user returns from the system accessibility settings.
     LaunchedEffect(Unit) {
         while (true) {
             serviceConnected = AccessibilityConnection.connected
@@ -534,7 +557,7 @@ fun SettingsScreen() {
             NazeCard {
                 Column {
                     Text("About", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Version", "0.17.0")
+                    DetailRow("Version", "0.18.0")
                     DetailRow("Open source licenses", "View")
                 }
             }
