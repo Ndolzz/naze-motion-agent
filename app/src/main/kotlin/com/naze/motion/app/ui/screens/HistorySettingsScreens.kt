@@ -50,6 +50,7 @@ import androidx.core.content.FileProvider
 import com.naze.motion.app.agent.AgentRunUi
 import com.naze.motion.app.agent.AllowedAppsStore
 import com.naze.motion.app.agent.ApiKeyStore
+import com.naze.motion.app.agent.SafetySettingsStore
 import com.naze.motion.core.access.AccessibilityConnection
 import com.naze.motion.app.ui.components.NazeActionTimeline
 import com.naze.motion.app.ui.components.NazeButton
