@@ -36,6 +36,12 @@ interface AgentRunDao {
 
     @Query("SELECT * FROM agent_runs ORDER BY endedAtMs DESC")
     fun observeRuns(): Flow<List<AgentRunEntity>>
+
+    @Query("DELETE FROM agent_runs WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM agent_runs")
+    suspend fun clearAll()
 }
 
 @Database(entities = [AgentRunEntity::class], version = 1, exportSchema = false)

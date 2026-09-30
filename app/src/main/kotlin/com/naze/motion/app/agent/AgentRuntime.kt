@@ -23,13 +23,14 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * AgentRuntime (Phase 11/12/13/14): the real wiring between the UI and the
+ * AgentRuntime (Phase 11 to 16): the real wiring between the UI and the
  * core pipeline. The dashboard starts a real run through MotionAgent over
-AndroidAccessibilityDriver, AccessibilityTargetResolver, and
+ * AndroidAccessibilityDriver, AccessibilityTargetResolver, and
  * AlightMotionAdapter. The planner provider is built from ApiKeyStore.
- * Every finished run is persisted to the local Room database. The
- * execution console renders a live timeline built from the validated plan
- * and updated from the structured engine log (Phase 14).
+ * Every finished run is persisted to the local Room database, and single
+ * runs or the whole history can be deleted (Phase 16). The execution
+ * console renders a live timeline built from the validated plan and
+ * updated from the structured engine log (Phase 14).
  */
 class AgentRuntime(context: Context) {
 
@@ -99,6 +100,21 @@ class AgentRuntime(context: Context) {
             applyResult(clean, result)
             statusConnected.value = AccessibilityConnection.connected
         }
+    }
+
+    /** Refreshes the cached accessibility connection flag (Phase 16). */
+    fun refreshConnection() {
+        statusConnected.value = AccessibilityConnection.connected
+    }
+
+    /** Deletes one persisted run by id (Phase 16). */
+    fun deleteRun(id: Long) {
+        scope.launch { dao.deleteById(id) }
+    }
+
+    /** Deletes every persisted run (Phase 16). */
+    fun clearHistory() {
+        scope.launch { dao.clearAll() }
     }
 
     private fun markStep(index: Int, state: TimelineItemState) {
