@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
@@ -22,26 +24,34 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.naze.motion.app.agent.AgentRunUi
 import com.naze.motion.app.ui.components.NazeButton
 import com.naze.motion.app.ui.components.NazeCard
 import com.naze.motion.app.ui.components.NazeEmptyState
 import com.naze.motion.app.ui.components.NazeSection
 import com.naze.motion.app.ui.components.NazeStatusLabel
 import com.naze.motion.app.ui.components.NazeTextField
-import com.naze.motion.app.ui.model.MockData
 import com.naze.motion.app.ui.theme.NazeColors
 import com.naze.motion.app.ui.theme.NazeTypography
 
 /**
- * Agent dashboard. Input is the focal point, not a wall of cards.
- * Mock state only: no fake AI behavior, engine wiring comes in Phase 5.
+ * Agent dashboard (Phase 18). Input is the focal point, not a wall of
+ * cards. The summary and the recent workflows list render real persisted
+ * runs from the local history database; MockData is no longer used here.
  */
 @Composable
 fun AgentDashboardScreen(
+    runs: List<AgentRunUi>,
     onStartTask: (String) -> Unit,
+    onOpenDetail: (Long) -> Unit,
     onOpenHistory: () -> Unit,
 ) {
     var instruction by remember { mutableStateOf("") }
+
+    val totalRuns = runs.size
+    val completedRuns = runs.count { it.outcome == "Completed" }
+    val successRate = if (totalRuns > 0) (completedRuns * 100) / totalRuns else 0
+    val recent = runs.take(3)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -76,8 +86,54 @@ fun AgentDashboardScreen(
             }
         }
         item {
+            NazeSection(title = "Run summary") {
+                if (totalRuns == 0) {
+                    Text(
+                        "No runs recorded yet. Statistics appear after the first real execution.",
+                        style = NazeTypography.body,
+                        color = NazeColors.textMuted,
+                    )
+                } else {
+                    Column {
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        ) {
+                            Text("Total runs", style = NazeTypography.body, color = NazeColors.textMuted)
+                            Text(
+                                totalRuns.toString(),
+                                style = NazeTypography.body.copy(color = NazeColors.textPrimary),
+                            )
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        ) {
+                            Text("Completed", style = NazeTypography.body, color = NazeColors.textMuted)
+                            Text(
+                                completedRuns.toString(),
+                                style = NazeTypography.body.copy(color = NazeColors.textPrimary),
+                            )
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        ) {
+                            Text("Success rate", style = NazeTypography.body, color = NazeColors.textMuted)
+                            Text(
+                                successRate.toString() + "%",
+                                style = NazeTypography.body.copy(
+                                    color = if (successRate >= 50) NazeColors.success else NazeColors.warning,
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        item {
             NazeSection(title = "Recent workflows") {
-                if (MockData.recentWorkflows.isEmpty()) {
+                if (recent.isEmpty()) {
                     NazeEmptyState(
                         title = "No workflows yet",
                         description = "Describe something you want to create and Naze will turn it into a workflow.",
@@ -85,17 +141,31 @@ fun AgentDashboardScreen(
                     )
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        MockData.recentWorkflows.forEach { (name, meta) ->
-                            NazeCard(padding = 12.dp, onClick = onOpenHistory) {
+                        recent.forEach { run ->
+                            NazeCard(padding = 12.dp, onClick = { onOpenDetail(run.id) }) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Column {
-                                        Text(name, style = NazeTypography.body.copy(color = NazeColors.textPrimary))
-                                        Text(meta, style = NazeTypography.caption)
+                                        Text(
+                                            run.instruction,
+                                            style = NazeTypography.body.copy(color = NazeColors.textPrimary),
+                                            maxLines = 1,
+                                        )
+                                        Text(
+                                            run.completedCount.toString() + " of " + run.actionCount + " actions",
+                                            style = NazeTypography.caption,
+                                            color = NazeColors.textMuted,
+                                        )
                                     }
+                                    NazeStatusLabel(
+                                        label = run.outcome,
+                                        color = if (run.outcome == "Completed") NazeColors.success else NazeColors.error,
+                                        icon = if (run.outcome == "Completed") Icons.Rounded.Check
+                                        else Icons.Rounded.ErrorOutline,
+                                    )
                                 }
                             }
                         }
