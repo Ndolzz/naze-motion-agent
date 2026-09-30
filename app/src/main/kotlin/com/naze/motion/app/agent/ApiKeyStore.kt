@@ -4,8 +4,8 @@ import android.content.Context
 import com.naze.motion.core.ai.AIProvider
 import com.naze.motion.core.ai.AiProviderConfig
 import com.naze.motion.core.ai.AiProviderKind
-import com.naze.motion.core.agent.LocalTemplateProvider
 import com.naze.motion.core.ai.NetworkAiProvider
+import com.naze.motion.core.agent.LocalTemplateProvider
 
 /**
  * ApiKeyStore (Phase 12): in app API key storage. Keys are entered by the
@@ -51,8 +51,7 @@ class ApiKeyStore(context: Context) {
     fun hasKey(providerId: String): Boolean = load(providerId).apiKey.isNotBlank()
 
     /**
-     * Builds the active AIProvider from
- the stored keys. Falls back to the
+     * Builds the active AIProvider from the stored keys. Falls back to the
      * deterministic LocalTemplateProvider whenever the selected provider
      * has no complete configuration, so a run never fails just because a
      * key is missing.
@@ -71,7 +70,8 @@ class ApiKeyStore(context: Context) {
         }.getOrElse { LocalTemplateProvider() }
     }
 
-    private fun field(providerId: String, name: String): String = "prov." + providerId + "." + name
+    private fun field(providerId: String, name: String): String =
+        "prov." + providerId + "." + name
 
     companion object {
         private const val PREFS_NAME = "naze_ai_keys"
@@ -99,8 +99,7 @@ class ApiKeyStore(context: Context) {
             ),
             CatalogEntry(
                 "gemini", "Google Gemini", AiProviderKind.GEMINI,
-                "http
-s://generativelanguage.googleapis.com", "gemini-1.5-flash",
+                "https://generativelanguage.googleapis.com", "gemini-1.5-flash",
             ),
             CatalogEntry(
                 "custom", "Custom (OpenAI compatible)", AiProviderKind.OPENAI_COMPATIBLE,
