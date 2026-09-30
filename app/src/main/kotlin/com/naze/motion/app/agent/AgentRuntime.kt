@@ -7,8 +7,13 @@ import com.naze.motion.app.ui.model.AgentUiState
 import com.naze.motion.core.access.AccessibilityConnection
 import com.naze.motion.core.access.AccessibilityTargetResolver
 import com.naze.motion.core.access.AndroidAccessibilityDriver
+import com.naze.motion.core.action.AutomationDriver
 import com.naze.motion.core.adapter.AlightMotionAdapter
+import com.naze.motion.core.adapter.CapCutAdapter
 import com.naze.motion.core.adapter.TargetAdapterRegistry
+import com.naze.motion.core.adapter.TargetApplicationAdapter
+import com.naze.motion.core.adapter.TargetAuditor
+import com.naze.motion.core.adapter.VocabularyAuditEntry
 import com.naze.motion.core.agent.AgentResult
 import com.naze.motion.core.agent.MotionAgent
 import com.naze.motion.core.ai.AiPlanner
@@ -27,23 +32,29 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * AgentRuntime (Phase 11 to 20): the real wiring between the UI and the
+ * AgentRuntime (Phase 11 to 26): the real wiring between the UI and the
  * core pipeline. The dashboard starts a real run through MotionAgent over
- * AndroidAccessibilityDriver, AccessibilityTargetResolver, and
- * AlightMotionAdapter. The planner provider is built from ApiKeyStore.
- * Every finished run is persisted to the local Room database together with
- * its plan timeline and log (Phase 17), and single runs or the whole
- * history can be deleted (Phase 16). The execution console renders a live
- * timeline built from the validated plan and updated from the structured
- * engine log (Phase 14). Phase 19 adds a preflight check before every
- * run (service connected, target installed), and Phase 20 auto launches
- * the target app so the run always starts on a ready screen. Phase 22 applies the
- * configurable safety profile (action timeout cap, retry cap, recovery
- * bounds) from Settings to every run. Phase 24 resolves the target
- * application through TargetAdapterRegistry instead of a hardcoded name,
+ * AndroidAccessibilityDriver, AccessibilityTargetResolver, and the adapter
+ * of the selected target application. The planner provider is built from
+ * ApiKeyStore. Every finished run is persisted to the local Room database
+ * together with its plan timeline and log (Phase 17), and single runs or
+ * the whole history can be deleted (Phase 16). The execution console
+ * renders a live timeline built from the validated plan and updated from
+ * the structured engine log (Phase 14). Phase 19 adds a preflight check
+ * before every run (service connected, target installed), and Phase 20
+ * auto launches the target app so the run always starts on a ready
+ * screen. Phase 22 applies the configurable safety profile (action
+ * timeout cap, retry cap, recovery bounds) from Settings to every run.
+ * Phase 24 resolves the target application through TargetAdapterRegistry
  * and watches the accessibility connection during a run: when the link
  * drops and later reconnects, the interrupted instruction is offered for
- * a one tap re-run.
+ * a one tap re-run. Phase 26 makes the target application a per device
+ * selection persisted through TargetSelectionStore: every run, preflight,
+ * and launch follows the selection instead of a hardcoded package, a
+ * finished run records which target it drove, and a run can be kept as a
+ * saved workflow that restores its target on reuse. Phase 26 also adds
+ * the on device vocabulary audit, which launches the selected target and
+ * verifies every known UI element of its adapter against the real screen.
  */
 class AgentRuntime(context: Context) {
 
@@ -51,7 +62,10 @@ class AgentRuntime(context: Context) {
     private val store = ApiKeyStore(context)
     private val safety = SafetySettingsStore(context)
     private val allowedApps = AllowedAppsStore(context)
-    private val dao = HistoryDatabase.get(context).agentRunDao()
+    private val targetSelection = TargetSelectionStore(context)
+    private val database = HistoryDatabase.get(context)
+    private val dao = database.agentRunDao()
+    private val savedDao = database.savedWorkflowDao()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var token: AgentCancellationToken? = null
 
@@ -70,6 +84,14 @@ class AgentRuntime(context: Context) {
     val preflightError = MutableStateFlow<String?>(null)
     val reconnectOffer = MutableStateFlow<String?>(null)
 
+    // Phase 26: the selected target application, the saved workflows,
+    // and the latest on device vocabulary audit of the selected target.
+    val selectedTarget = MutableStateFlow(targetSelection.load())
+    val savedWorkflows = MutableStateFlow<List<SavedWorkflowUi>>(emptyList())
+    val vocabularyAudit = MutableStateFlow<List<VocabularyAuditEntry>?>(null)
+    val auditRunning = MutableStateFlow(false)
+    val auditError = MutableStateFlow<String?>(null)
+
     init {
         statusConnected.value = AccessibilityConnection.connected
         scope.launch {
@@ -77,15 +99,143 @@ class AgentRuntime(context: Context) {
                 history.value = runs.map { it.toUi() }
             }
         }
+        scope.launch {
+            savedDao.observeAll().collectLatest { workflows ->
+                savedWorkflows.value = workflows.map { workflow ->
+                    SavedWorkflowUi(
+                        id = workflow.id,
+                        instruction = workflow.instruction,
+                        targetPackage = workflow.targetPackage,
+                        createdAtMs = workflow.createdAtMs,
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Phase 26: changes the target application the agent drives. The
+     * store refuses packages the registry does not know, so the selection
+     * can never point at an adapter that does not exist.
+     */
+    fun selectTarget(packageName: String): Boolean {
+        if (!targetSelection.save(packageName)) return false
+        selectedTarget.value = packageName
+        return true
+    }
+
+    /**
+     * Phase 26: keeps a finished instruction for one tap reuse, together
+     * with the target application it drove. Returns false when there is
+     * nothing worth saving.
+     */
+    fun saveWorkflowFromRun(id: Long): Boolean {
+        val run = history.value.firstOrNull { it.id == id } ?: return false
+        val clean = run.instruction.trim()
+        if (clean.isEmpty()) return false
+        scope.launch {
+            savedDao.insert(
+                SavedWorkflowEntity(
+                    instruction = clean,
+                    targetPackage = run.targetPackage,
+                    createdAtMs = System.currentTimeMillis(),
+                )
+            )
+        }
+        return true
+    }
+
+    /** Phase 26: deletes one saved workflow by id. */
+    fun deleteWorkflow(id: Long) {
+        scope.launch { savedDao.deleteById(id) }
+    }
+
+    /**
+     * Phase 26: starts a saved workflow, restoring the target
+     * application it was saved for before the run begins. Returns false
+     * when the workflow no longer exists or a run is already active.
+     */
+    fun startSavedWorkflow(id: Long): Boolean {
+        if (executionActive.value) return false
+        val workflow = savedWorkflows.value.firstOrNull { it.id == id }
+            ?: return false
+        selectTarget(workflow.targetPackage)
+        start(workflow.instruction)
+        return true
+    }
+
+    /**
+     * Phase 26: audits the vocabulary of the selected target adapter on
+     * the real device. Launches the target, gives the screen a moment to
+     * settle, then resolves every known UI element and reports found or
+     * not found per entry. The service must be connected and the target
+     * installed; failures are reported through auditError.
+     */
+    fun auditSelectedTarget() {
+        if (auditRunning.value) return
+        if (executionActive.value) {
+            auditError.value = "A run is active. Wait for it to finish before auditing."
+            return
+        }
+        if (!AccessibilityConnection.connected) {
+            auditError.value = "Motion accessibility service is off. " +
+                "Enable it in system accessibility settings, then try again."
+            return
+        }
+        val target = selectedTarget.value
+        val targetLabel = TargetAdapterRegistry.displayNameFor(target)
+        val targetInstalled = runCatching {
+            appContext.packageManager.getPackageInfo(target, 0)
+        }.isSuccess
+        if (!targetInstalled) {
+            auditError.value = targetLabel + " is not installed on this device, " +
+                "so there is no screen to audit."
+            return
+        }
+        auditError.value = null
+        vocabularyAudit.value = null
+        auditRunning.value = true
+        scope.launch {
+            try {
+                val launch = appContext.packageManager.getLaunchIntentForPackage(target)
+                if (launch != null) {
+                    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    runCatching { appContext.startActivity(launch) }
+                }
+                delay(AUDIT_SETTLE_MS)
+                val driver = AndroidAccessibilityDriver()
+                val adapter = adapterFor(target, driver)
+                if (adapter == null) {
+                    vocabularyAudit.value = null
+                    auditError.value = "Unknown target application selected."
+                } else {
+                    vocabularyAudit.value = TargetAuditor.audit(adapter)
+                }
+            } catch (t: Throwable) {
+                vocabularyAudit.value = null
+                auditError.value = "Audit failed: " + (t.message ?: t.toString())
+            } finally {
+                auditRunning.value = false
+            }
+        }
+    }
+
+    /** Phase 26: dismisses the last audit error banner. */
+    fun dismissAuditError() {
+        auditError.value = null
     }
 
     fun start(instruction: String) {
         if (executionActive.value) return
         val clean = instruction.trim()
         if (clean.isEmpty()) return
+        // Phase 26: the run drives the selected target application, not a
+        // hardcoded package. The selection is validated by the store and
+        // the registry, so preflight and launch follow it safely.
+        val target = selectedTarget.value
         // Phase 19: refuse the run early instead of failing halfway
         // through execution when the environment is not ready.
-        val blocked = preflight()
+        val blocked = preflight(target)
         if (blocked != null) {
             preflightError.value = blocked
             return
@@ -95,7 +245,7 @@ class AgentRuntime(context: Context) {
         // Phase 20: bring the target app to the front so the run starts
         // on a ready screen. Launching an already open app simply focuses
         // it, so this is always safe to call after preflight.
-        val launch = appContext.packageManager.getLaunchIntentForPackage(TARGET_PACKAGE)
+        val launch = appContext.packageManager.getLaunchIntentForPackage(target)
         if (launch != null) {
             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             runCatching { appContext.startActivity(launch) }
@@ -127,8 +277,17 @@ class AgentRuntime(context: Context) {
 
         scope.launch {
             val driver = AndroidAccessibilityDriver()
+            val adapter = adapterFor(target, driver)
+            if (adapter == null) {
+                executionActive.value = false
+                runLive = false
+                monitorJob?.cancel()
+                monitorJob = null
+                uiState.value = AgentUiState.Idle
+                preflightError.value = "Unknown target application selected."
+                return@launch
+            }
             val resolver = AccessibilityTargetResolver(driver)
-            val adapter = AlightMotionAdapter(driver)
             // Phase 22: the configurable safety profile caps action
             // timeout and retries and drives bounded recovery.
             val engine = ExecutionEngine(profile = safety.load())
@@ -157,7 +316,7 @@ class AgentRuntime(context: Context) {
                         else TimelineItemState.PENDING
                 }
             }
-            applyResult(clean, result)
+            applyResult(clean, target, result)
             runLive = false
             monitorJob?.cancel()
             monitorJob = null
@@ -176,29 +335,41 @@ class AgentRuntime(context: Context) {
     }
 
     /**
+     * Phase 26: the adapter of the selected target application, built on
+     * the driver of the current run or audit. Unknown packages have no
+     * adapter by definition; callers handle the null.
+     */
+    private fun adapterFor(
+        packageName: String,
+        driver: AutomationDriver,
+    ): TargetApplicationAdapter? = when (packageName) {
+        TargetAdapterRegistry.ALIGHT_MOTION_PACKAGE -> AlightMotionAdapter(driver)
+        TargetAdapterRegistry.CAPCUT_PACKAGE -> CapCutAdapter(driver)
+        else -> null
+    }
+
+    /**
      * Phase 19 preflight: returns a human readable reason when the run
      * must be refused, or null when the environment is ready. Checks that
-     * MotionAccessibilityService is connected and that the target
-     * application is installed on this device.
+     * MotionAccessibilityService is connected, that the target application
+     * is installed on this device, and that it is allowed to run.
      */
-    private fun preflight(): String? {
+    private fun preflight(target: String): String? {
         statusConnected.value = AccessibilityConnection.connected
         if (!AccessibilityConnection.connected) {
             return "Motion accessibility service is off. " +
                 "Enable it in system accessibility settings, then try again."
         }
-        // Phase 24: the target name comes from the registry, so a second
-        // target application never needs hardcoded strings here.
-        val targetLabel = TargetAdapterRegistry.displayNameFor(TARGET_PACKAGE)
+        val targetLabel = TargetAdapterRegistry.displayNameFor(target)
         val targetInstalled = runCatching {
-            appContext.packageManager.getPackageInfo(TARGET_PACKAGE, 0)
+            appContext.packageManager.getPackageInfo(target, 0)
         }.isSuccess
         if (!targetInstalled) {
             return targetLabel + " is not installed on this device, " +
                 "so the run has nowhere to execute."
         }
         // Phase 23: the target must be on the allowed apps list.
-        if (!allowedApps.isAllowed(TARGET_PACKAGE)) {
+        if (!allowedApps.isAllowed(target)) {
             return targetLabel + " is not on the allowed applications " +
                 "list. Allow it in Settings to run."
         }
@@ -265,7 +436,11 @@ class AgentRuntime(context: Context) {
         return action.type.name + detail
     }
 
-    private suspend fun applyResult(instruction: String, result: AgentResult) {
+    private suspend fun applyResult(
+        instruction: String,
+        targetPackage: String,
+        result: AgentResult,
+    ) {
         val outcome: String
         val reason: String?
         val actionCount: Int
@@ -335,6 +510,7 @@ class AgentRuntime(context: Context) {
                 completedCount = completedCount,
                 durationMs = durationMs,
                 endedAtMs = System.currentTimeMillis(),
+                targetPackage = targetPackage,
                 logText = logLines.value.joinToString("\n") { it.first + "|" + it.second },
                 planText = planSteps.value.joinToString("\n") { it.first + "|" + it.second.name },
             )
@@ -372,6 +548,7 @@ class AgentRuntime(context: Context) {
         completedCount = completedCount,
         durationMs = durationMs,
         endedAtMs = endedAtMs,
+        targetPackage = targetPackage,
         planSteps = planText.split('\n')
             .filter { it.isNotBlank() }
             .map { line ->
@@ -400,11 +577,9 @@ class AgentRuntime(context: Context) {
     }
 
     companion object {
-        /**
-         * Resolved through the registry (Phase 24): adding a second target
-         * application later only changes the registry, not this runtime.
-         */
-        private const val TARGET_PACKAGE = TargetAdapterRegistry.ALIGHT_MOTION_PACKAGE
         private const val CONNECTION_POLL_MS = 500L
+
+        /** Give the launched target a moment to settle before auditing. */
+        private const val AUDIT_SETTLE_MS = 1_500L
     }
 }

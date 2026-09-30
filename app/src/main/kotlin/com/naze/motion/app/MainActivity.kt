@@ -39,9 +39,11 @@ import com.naze.motion.app.ui.screens.ExecutionScreen
 import com.naze.motion.app.ui.screens.HistoryScreen
 import com.naze.motion.app.ui.screens.SettingsScreen
 import com.naze.motion.app.ui.screens.WorkflowDetailScreen
+import com.naze.motion.app.ui.screens.WorkflowsScreen
 import com.naze.motion.app.ui.theme.NazeColors
 import com.naze.motion.app.ui.theme.NazeMotionTheme
 import com.naze.motion.app.ui.theme.NazeTypography
+import com.naze.motion.core.adapter.TargetAdapterRegistry
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,6 +83,13 @@ fun NazeMotionApp() {
     // Phase 25: reconnect offer kept by the runtime after a mid-run
     // accessibility disconnect that later reconnected.
     val reconnectOffer by runtime.reconnectOffer.collectAsState()
+    // Phase 26: per device target selection, saved workflows, and the
+    // latest on device vocabulary audit of the selected target.
+    val selectedTarget by runtime.selectedTarget.collectAsState()
+    val savedWorkflows by runtime.savedWorkflows.collectAsState()
+    val vocabularyAudit by runtime.vocabularyAudit.collectAsState()
+    val auditRunning by runtime.auditRunning.collectAsState()
+    val auditError by runtime.auditError.collectAsState()
 
     DisposableEffect(Unit) {
         onDispose { runtime.shutdown() }
@@ -141,13 +150,32 @@ fun NazeMotionApp() {
                     reconnectOffer = reconnectOffer,
                     onRerun = { runtime.rerunLast() },
                     onDismissReconnect = { runtime.dismissReconnectOffer() },
+                    // Phase 26: target selection and the on device
+                    // vocabulary audit of the selected target.
+                    targetName = TargetAdapterRegistry.displayNameFor(selectedTarget),
+                    targets = TargetAdapterRegistry.knownTargets,
+                    selectedTargetPackage = selectedTarget,
+                    onSelectTarget = { runtime.selectTarget(it) },
+                    auditEntries = vocabularyAudit,
+                    auditRunning = auditRunning,
+                    auditError = auditError,
+                    onAuditTarget = { runtime.auditSelectedTarget() },
                 )
-                destination == Destination.HISTORY || destination == Destination.WORKFLOWS ->
-                    HistoryScreen(
-                        runs = history,
-                        onOpenDetail = { detailId = it },
-                        onDeleteAll = { runtime.clearHistory() },
-                    )
+                // Phase 26: saved workflows replace the duplicate history
+                // view. A saved workflow restores its target on reuse,
+                // and finished runs can be saved from here.
+                destination == Destination.WORKFLOWS -> WorkflowsScreen(
+                    saved = savedWorkflows,
+                    runs = history,
+                    onRunWorkflow = { runtime.startSavedWorkflow(it) },
+                    onDeleteWorkflow = { runtime.deleteWorkflow(it) },
+                    onSaveWorkflow = { runtime.saveWorkflowFromRun(it) },
+                )
+                destination == Destination.HISTORY -> HistoryScreen(
+                    runs = history,
+                    onOpenDetail = { detailId = it },
+                    onDeleteAll = { runtime.clearHistory() },
+                )
                 destination == Destination.SETTINGS -> SettingsScreen()
             }
         }
