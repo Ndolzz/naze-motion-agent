@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.naze.motion.app.agent.AgentRunUi
 import com.naze.motion.app.agent.ApiKeyStore
+import com.naze.motion.app.agent.AllowedAppsStore
 import com.naze.motion.app.agent.SafetySettingsStore
 import com.naze.motion.core.access.AccessibilityConnection
 import com.naze.motion.app.ui.components.NazeActionTimeline
@@ -141,7 +142,8 @@ fun HistoryScreen(
                         Text(
                             run.instruction,
                             style = NazeTypography.body.copy(color = NazeColors.textPrimary),
-                            maxLines = 1,
+                  
+          maxLines = 1,
                         )
    
                      NazeStatusLabel(
@@ -201,7 +203,8 @@ fun WorkflowDetailScreen(
     var confirmDelete by remember { mutableStateOf(false) }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+  
+      modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { Spacer(Modifier.height(8.dp)) }
@@ -255,7 +258,8 @@ fun WorkflowDetailScreen(
                     DetailRow("Duration", formatDuration(run.durationMs))
                     DetailRow(
                         "Actions",
-                        run.completedCount.toString() + " of " + run.actionCount + " completed",
+                       
+ run.completedCount.toString() + " of " + run.actionCount + " completed",
                     )
                     DetailRow("Ended", formatEnded(run.endedAtMs))
                     DetailRow("Application", "Alight Motion")
@@ -438,6 +442,11 @@ fun SettingsScreen() {
     var attemptsText by remember { mutableStateOf(profile.maxAttempts.toString()) }
     var recoveryText by remember { mutableStateOf(profile.recoveryMaxAttempts.toString()) }
     var backoffText by remember { mutableStateOf(profile.recoveryBackoffBaseMs.toString()) }
+    val appsStore = remember { AllowedAppsStore(context.applicationContext) }
+    var allowedList by remember { mutableStateOf(appsStore.load()) }
+    var newPackage by remember { mutableStateOf("") }
+    var appMessage by remember { mutableStateOf<String?>(null) }
+    var appOk by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var selectedId by remember { mutableStateOf(store.selectedId()) }
     var apiKey by remember(selectedId) { mutableStateOf(store.load(selectedId).apiKey) }
@@ -497,7 +506,8 @@ fun SettingsScreen() {
                             when {
                                 catalog.kind == null ->
                                     NazeStatusLabel(
-                                        label = if (selected) "Active" else "On device",
+                                        label = if (selected) "Active" else "On
+ device",
                                         color = NazeColors.textMuted,
                                         icon = Icons.Rounded.History,
                                     )
@@ -542,7 +552,8 @@ fun SettingsScreen() {
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 entry.keyHint!!,
-                                style = NazeTypography.caption,
+                                style =
+ NazeTypography.caption,
                                 color = NazeColors.textMuted,
                             )
                         }
@@ -580,7 +591,8 @@ fun SettingsScreen() {
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = NazeColors.surfaceElevated,
                                 unfocusedContainerColor = NazeColors.surfaceElevated,
-                                focusedBorderColor = NazeColors.primary,
+       
+                         focusedBorderColor = NazeColors.primary,
                                 unfocusedBorderColor = NazeColors.border,
                                 cursorColor = NazeColors.primary,
                                 focusedTextColor = NazeColors.textPrimary,
@@ -654,7 +666,8 @@ fun SettingsScreen() {
                                 },
                             )
                         }
-                        if (testMessage != null) {
+                   
+     if (testMessage != null) {
                             Spacer(Modifier.height(8.dp))
                             NazeStatusLabel(
                                 label = testMessage!!,
@@ -787,8 +800,7 @@ fun SettingsScreen() {
                         },
                         leadingIcon = Icons.Rounded.SettingsIcon,
                     )
-        
-        }
+                }
             }
         }
         item {
@@ -797,7 +809,94 @@ fun SettingsScreen() {
                     Text("Safety", style = NazeTypography.section, color = NazeColors.textPrimary)
                     DetailRow("Require confirmation", "On")
                     DetailRow("Emergency stop", "Always available")
-                    DetailRow("Allowed applications", "Alight Motion")
+                }
+            }
+        }
+        item {
+            NazeCard {
+                Column {
+                    Text(
+                        "Allowed applications",
+                        style = NazeTypography.section,
+                        color = NazeColors.textPrimary,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "The agent only opens apps on this list. Adding " +
+                            "an app here does not create an adapter for it; " +
+                            "today the agent drives Alight Motion only.",
+                        style = NazeTypography.caption,
+                        color = NazeColors.textMuted,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    if (allowedList.isEmpty()) {
+                        Text(
+                            "No allowed applications. Every run will be refused " +
+                                "until at least one app is allowed.",
+                            style = NazeTypography.caption,
+                            color = NazeColors.error,
+                        )
+                    } else {
+                        allowedList.forEach { pkg ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    pkg,
+                                    style = NazeTypography.body.copy(
+                                        color = NazeColors.textPrimary,
+                                    ),
+                                )
+                                TextButton(
+                                    onClick = {
+                                        appsStore.remove(pkg)
+                                        allowedList = appsStore.load()
+                                    },
+                                ) { Text("Remove", color = NazeColors.error) }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    NazeTextField(
+                        value = newPackage,
+                        onValueChange = { newPackage = it },
+                        placeholder = "Package name, e.g. org.example.app",
+                        minLines = 1,
+                    )
+                    if (appMessage != null) {
+                        Spacer(Modifier.height(8.dp))
+                        NazeStatusLabel(
+                            label = appMessage!!,
+                            color = if (appOk) NazeColors.success else NazeColors.error,
+                            icon = if (appOk) {
+                                Icons.Rounded.Check
+                            } else {
+                                Icons.Rounded.ErrorOutline
+                            },
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    NazeButton(
+                        text = "Allow app",
+                        onClick = {
+                            val added = appsStore.add(newPackage)
+                            appOk = added
+                            appMessage = if (added) {
+                                "Added to the allowed list"
+                            } else {
+                                "Not a valid package name"
+                            }
+                            if (added) {
+                                allowedList = appsStore.load()
+                                newPackage = ""
+                            }
+                        },
+                        enabled = newPackage.isNotBlank(),
+                        isPrimary = true,
+                        leadingIcon = Icons.Rounded.Check,
+                    )
                 }
             }
         }
@@ -805,7 +904,7 @@ fun SettingsScreen() {
             NazeCard {
                 Column {
                     Text("About", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Version", "0.22.0")
+                    DetailRow("Version", "0.23.0")
                     DetailRow("Open source licenses", "View")
                 }
             }

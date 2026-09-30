@@ -43,6 +43,7 @@ class AgentRuntime(context: Context) {
     private val appContext = context.applicationContext
     private val store = ApiKeyStore(context)
     private val safety = SafetySettingsStore(context)
+    private val allowedApps = AllowedAppsStore(context)
     private val dao = HistoryDatabase.get(context).agentRunDao()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var token: AgentCancellationToken? = null
@@ -151,6 +152,11 @@ class AgentRuntime(context: Context) {
         if (!targetInstalled) {
             return "Alight Motion is not installed on this device, " +
                 "so the run has nowhere to execute."
+        }
+        // Phase 23: the target must be on the allowed apps list.
+        if (!allowedApps.isAllowed(TARGET_PACKAGE)) {
+            return "Alight Motion is not on the allowed applications " +
+                "list. Allow it in Settings to run."
         }
         return null
     }
