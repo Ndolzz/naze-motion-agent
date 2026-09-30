@@ -168,7 +168,7 @@ private fun DetailRow(label: String, value: String) {
 }
 
 /**
- * Settings (Phase 12/14): API keys are entered here, inside the app, and
+ * Settings (Phase 12/14/15): API keys are entered here, inside the app, and
  * stay on this device. Keys are masked by default, stored in app private
  * storage, and used only for the selected provider. The Test button
  * verifies the current configuration with one real planning call before
@@ -256,6 +256,14 @@ fun SettingsScreen() {
                             style = NazeTypography.caption,
                             color = NazeColors.textMuted,
                         )
+                        if (entry.keyHint != null) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                entry.keyHint!!,
+                                style = NazeTypography.caption,
+                                color = NazeColors.textMuted,
+                            )
+                        }
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             value = apiKey,
@@ -397,7 +405,7 @@ fun SettingsScreen() {
             NazeCard {
                 Column {
                     Text("About", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Version", "0.14.0")
+                    DetailRow("Version", "0.15.0")
                     DetailRow("Open source licenses", "View")
                 }
             }

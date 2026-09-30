@@ -17,6 +17,7 @@
 | 12 | In app multi provider API keys + network providers | done |
 | 13 | Persistent run history | done |
 | 14 | Live execution timeline + API key test | done |
+| 15 | More provider presets (Groq, OpenRouter, Ollama) | done |
 
 Phase 7 note: core/access is an Android library holding
 MotionAccessibilityService, AndroidAccessibilityDriver,
@@ -69,3 +70,12 @@ drives the state of each step (active, success, recovering, failed) live. The
 Settings screen gains a Test button that verifies the current key, model, and
 base URL with one real planning call before saving; the result message is
 shown inline. MockData is no longer used by the execution console.
+
+Phase 15 note: the provider catalog in Settings grows to cover Groq,
+OpenRouter, and self hosted Ollama on top of OpenAI, Anthropic, Google Gemini,
+and custom OpenAI compatible endpoints. All three use the OpenAI compatible
+chat endpoint already covered by NetworkAiProvider, each with a default base
+URL and model and an optional per provider hint shown in Settings. Cleartext
+HTTP is permitted only for localhost, 127.0.0.1, and the emulator host alias
+10.0.2.2 through a network security config, so a local Ollama works while
+every other connection must still be HTTPS.

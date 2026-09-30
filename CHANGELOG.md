@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.15.0] PHASE 15
+### Added
+- More network provider presets: Groq, OpenRouter, and self hosted Ollama
+  join OpenAI, Anthropic, Google Gemini, and custom OpenAI compatible
+  endpoints in the Settings provider catalog. Every preset ships a default
+  base URL and model and uses the OpenAI compatible chat endpoint already
+  implemented by NetworkAiProvider.
+- Per provider hints in Settings: the Ollama entry explains that the key
+  field is ignored by the server and which base URL to use on the Android
+  emulator versus a physical device.
+- Network security config: cleartext HTTP is permitted only for localhost,
+  127.0.0.1, and 10.0.2.2 so a self hosted Ollama on the same machine works,
+  while all other traffic must still be HTTPS.
+### Changed
+- app version 0.15.0.
+
 ## [0.14.0] PHASE 14
 ### Added
 - Live execution timeline: the console renders the real validated plan.
