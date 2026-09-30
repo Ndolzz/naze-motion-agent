@@ -1,27 +1,30 @@
 package com.naze.motion.app.agent
 
 import android.content.Context
+import com.naze.motion.core.adapter.TargetAdapterRegistry
 import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * ConfigPorter (Phase 24): exports the on-device agent configuration into
- * one JSON document and imports it back. The document carries the safety
- * profile, the allowed applications list, the selected AI provider, and
- * every stored provider configuration (key, model, base URL). The values
- * live on this device only; exporting hands the API keys to whatever the
- * user shares the document with, so the UI must always let the user pick
- * the destination explicitly. Import goes through the same stores the
- * Settings screens use, so validation and coercion stay in one place:
- * invalid package names are skipped instead of failing the whole import,
- * and the safety profile is coerced by ExecutionProfile.of before it is
- * persisted.
+ * ConfigPorter (Phase 24, target in Phase 26): exports the on-device
+ * agent configuration into one JSON document and imports it back. The
+ * document carries the safety profile, the allowed applications list, the
+ * selected AI provider, every stored provider configuration (key, model,
+ * base URL), and since Phase 26 the selected target application. The
+ * values live on this device only; exporting hands the API keys to
+ * whatever the user shares the document with, so the UI must always let
+ * the user pick the destination explicitly. Import goes through the same
+ * stores the Settings screens use, so validation and coercion stay in
+ * one place: invalid package names are skipped instead of failing the
+ * whole import, the safety profile is coerced by ExecutionProfile.of
+ * before it is persisted, and an unknown target package is ignored.
  */
 class ConfigPorter(context: Context) {
 
     private val safety = SafetySettingsStore(context)
     private val allowedApps = AllowedAppsStore(context)
     private val keys = ApiKeyStore(context)
+    private val targets = TargetSelectionStore(context)
 
     /** Serializes the full configuration. Never throws. */
     fun export(): String {
@@ -56,12 +59,15 @@ class ConfigPorter(context: Context) {
             .put("allowedApps", JSONArray(allowedApps.load()))
             .put("selectedProvider", keys.selectedId())
             .put("providers", providers)
+            // Phase 26: the selected target application travels with the
+            // document so a restored device drives the same app.
+            .put("target", targets.load())
         return root.toString(2)
     }
 
     /**
      * Applies an exported document. Fails with a clear message when the
-     * document is not a Phase 24 export; partially valid sections are
+     * document is not a supported export; partially valid sections are
      * applied, malformed entries inside a section are skipped.
      */
     fun import(json: String): Result<Unit> = runCatching {
@@ -104,6 +110,12 @@ class ConfigPorter(context: Context) {
         }
         val selected = root.optString("selectedProvider", "")
         if (selected.isNotBlank()) keys.setSelected(selected)
+        // Phase 26: the target is optional so older exports still load;
+        // only registry known packages are stored.
+        val target = root.optString("target", "")
+        if (TargetAdapterRegistry.isKnown(target)) {
+            targets.save(target)
+        }
     }
 
     companion object {

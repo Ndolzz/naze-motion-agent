@@ -13,10 +13,12 @@ import com.naze.motion.app.ui.components.TimelineItemState
 import kotlinx.coroutines.flow.Flow
 
 /**
- * One finished agent run (Phase 13/17). Persisted locally so History shows
- * real executions instead of mock data. The log is stored as compact
- * "time|event" lines and the plan timeline as "label|state" lines so the
- * detail screen can replay both.
+ * One finished agent run (Phase 13/17/26). Persisted locally so History
+ * shows real executions instead of mock data. The log is stored as
+ * compact "time|event" lines and the plan timeline as "label|state" lines
+ * so the detail screen can replay both. Since Phase 26 every run also
+ * records the target application package it drove, so the detail screen
+ * and saved workflows name the real target.
  */
 @Entity(tableName = "agent_runs")
 data class AgentRunEntity(
@@ -28,8 +30,22 @@ data class AgentRunEntity(
     val completedCount: Int,
     val durationMs: Long,
     val endedAtMs: Long,
+    val targetPackage: String,
     val logText: String,
     val planText: String,
+)
+
+/**
+ * One saved workflow (Phase 26): an instruction kept for one tap reuse,
+ * together with the target application it was saved for. Saved workflows
+ * are disposable local convenience data, not cloud documents.
+ */
+@Entity(tableName = "saved_workflows")
+data class SavedWorkflowEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val instruction: String,
+    val targetPackage: String,
+    val createdAtMs: Long,
 )
 
 @Dao
@@ -47,9 +63,29 @@ interface AgentRunDao {
     suspend fun clearAll()
 }
 
-@Database(entities = [AgentRunEntity::class], version = 2, exportSchema = false)
+@Dao
+interface SavedWorkflowDao {
+    @Insert
+    suspend fun insert(workflow: SavedWorkflowEntity): Long
+
+    @Query("SELECT * FROM saved_workflows ORDER BY createdAtMs DESC")
+    fun observeAll(): Flow<List<SavedWorkflowEntity>>
+
+    @Query("DELETE FROM saved_workflows WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM saved_workflows")
+    suspend fun clearAll()
+}
+
+@Database(
+    entities = [AgentRunEntity::class, SavedWorkflowEntity::class],
+    version = 3,
+    exportSchema = false,
+)
 abstract class HistoryDatabase : RoomDatabase() {
     abstract fun agentRunDao(): AgentRunDao
+    abstract fun savedWorkflowDao(): SavedWorkflowDao
 
     companion object {
         @Volatile
@@ -62,9 +98,11 @@ abstract class HistoryDatabase : RoomDatabase() {
                     HistoryDatabase::class.java,
                     "naze_history.db",
                 )
-                    // Phase 17: plan steps column added. Run history is local
-                    // diagnostics data, so the schema bump recreates the table
-                    // instead of carrying a hand written migration.
+                    // Phase 17: plan steps column added. Phase 26: target
+                    // package column and the saved workflows table. Run
+                    // history and saved workflows are local disposable
+                    // data, so the schema bump recreates the tables
+                    // instead of carrying hand written migrations.
                     .fallbackToDestructiveMigration()
                     .build().also { instance = it }
             }
@@ -81,6 +119,15 @@ data class AgentRunUi(
     val completedCount: Int,
     val durationMs: Long,
     val endedAtMs: Long,
+    val targetPackage: String,
     val planSteps: List<Pair<String, TimelineItemState>>,
     val logLines: List<Pair<String, String>>,
+)
+
+/** Read model for one saved workflow (Phase 26). */
+data class SavedWorkflowUi(
+    val id: Long,
+    val instruction: String,
+    val targetPackage: String,
+    val createdAtMs: Long,
 )
