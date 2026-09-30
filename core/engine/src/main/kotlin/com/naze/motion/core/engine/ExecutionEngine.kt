@@ -10,6 +10,7 @@ import com.naze.motion.core.domain.AgentCancellationToken
 import com.naze.motion.core.domain.AgentError
 import com.naze.motion.core.domain.ErrorCode
 import com.naze.motion.core.domain.ExecutionContext
+import com.naze.motion.core.domain.ExecutionProfile
 import com.naze.motion.core.domain.Observation
 import com.naze.motion.core.domain.TargetApplication
 import com.naze.motion.core.domain.VerificationResult
@@ -30,10 +31,22 @@ import kotlinx.coroutines.withTimeoutOrNull
  */
 class ExecutionEngine(
     private val dispatcher: ActionDispatcher = ActionDispatcher.withDefaultHandlers(),
-    private val recoveryManager: RecoveryManager = RecoveryManager(),
+    private val recoveryManager: RecoveryManager? = null,
     private val logger: EngineLog = EngineLog(),
     private val clock: () -> Long = { System.currentTimeMillis() },
+    private val profile: ExecutionProfile = ExecutionProfile(),
 ) {
+
+    /**
+     * Effective recovery manager: an injected manager wins (tests inject
+     * deterministic doubles); otherwise the safety profile drives the
+     bounded recovery attempts and backoff (Phase 22).
+     */
+    private val recovery: RecoveryManager = recoveryManager
+        ?: RecoveryManager(
+            maxAttempts = profile.recoveryMaxAttempts,
+            backoffMs = { attempt -> profile.recoveryBackoffMs(attempt) },
+        )
 
     fun log(): EngineLog = logger
 
@@ -109,7 +122,7 @@ class ExecutionEngine(
 
             stateMachine.transitionTo(AgentState.RECOVERING)
             logger.info("RECOVERY_STARTED", "bounded recovery for action " + action.id, taskId, action.id)
-            val recovery = recoveryManager.attempt(
+            val recovery = recovery.attempt(
                 isCancelled = { cancellationToken.isCancelled },
                 recheck = {
                     if (cancellationToken.isCancelled) {
@@ -160,7 +173,9 @@ class ExecutionEngine(
         completedActionIds: List<String>,
         cancellationToken: AgentCancellationToken,
     ): ActionResult {
-        val maxAttempts = action.retryPolicy.maxAttempts
+        // Phase 22: the safety profile caps retries; the action policy
+        // can never push the run above the configured limit.
+        val maxAttempts = profile.attemptsCapFor(action)
         var lastFailure: ActionResult.Failure? = null
         for (attemptNo in 1..maxAttempts) {
             if (cancellationToken.isCancelled) {
@@ -169,12 +184,13 @@ class ExecutionEngine(
             }
             val attemptStart = clock()
             val context = ExecutionContext(taskId, cancellationToken, attemptStart, completedActionIds)
-            val dispatched = withTimeoutOrNull(action.timeoutMs) {
+            val timeoutMs = profile.timeoutCapFor(action)
+            val dispatched = withTimeoutOrNull(timeoutMs) {
                 dispatcher.dispatch(action, driver, resolver, context)
             }
             val result: ActionResult = when {
                 dispatched == null -> ActionResult.Failure(action.id,
-                    AgentError(ErrorCode.TIMEOUT, "action exceeded timeout " + action.timeoutMs + " ms"),
+                    AgentError(ErrorCode.TIMEOUT, "action exceeded timeout " + timeoutMs + " ms"),
                     attemptNo, clock() - attemptStart)
                 dispatched.isFailure -> {
                     val dispatchError =
@@ -248,7 +264,8 @@ class ExecutionEngine(
         completed: List<String>,
         reason: String,
     ): ExecutionSummary {
-        machine.transitionTo(AgentState.CANCELLED)
+        machine.transitionTo(AgentState
+.CANCELLED)
         logger.warning("EXECUTION_CANCELLED", reason, taskId)
         return ExecutionSummary(ExecutionOutcome.CANCELLED, taskId, completed, null,
             AgentError(ErrorCode.CANCELLED, reason), clock() - startedAtMs, logger.snapshot)
