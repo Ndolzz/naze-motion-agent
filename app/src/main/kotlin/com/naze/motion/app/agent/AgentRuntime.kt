@@ -8,6 +8,7 @@ import com.naze.motion.core.access.AccessibilityConnection
 import com.naze.motion.core.access.AccessibilityTargetResolver
 import com.naze.motion.core.access.AndroidAccessibilityDriver
 import com.naze.motion.core.adapter.AlightMotionAdapter
+import com.naze.motion.core.adapter.TargetAdapterRegistry
 import com.naze.motion.core.agent.AgentResult
 import com.naze.motion.core.agent.MotionAgent
 import com.naze.motion.core.ai.AiPlanner
@@ -17,8 +18,10 @@ import com.naze.motion.core.domain.AgentCancellationToken
 import com.naze.motion.core.engine.ExecutionEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -36,7 +39,11 @@ import kotlinx.coroutines.launch
  * run (service connected, target installed), and Phase 20 auto launches
  * the target app so the run always starts on a ready screen. Phase 22 applies the
  * configurable safety profile (action timeout cap, retry cap, recovery
- * bounds) from Settings to every run.
+ * bounds) from Settings to every run. Phase 24 resolves the target
+ * application through TargetAdapterRegistry instead of a hardcoded name,
+ * and watches the accessibility connection during a run: when the link
+ * drops and later reconnects, the interrupted instruction is offered for
+ * a one tap re-run.
  */
 class AgentRuntime(context: Context) {
 
@@ -48,6 +55,10 @@ class AgentRuntime(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var token: AgentCancellationToken? = null
 
+    @Volatile private var runLive = false
+    @Volatile private var connectionLostDuringRun = false
+    private var monitorJob: Job? = null
+
     val executionActive = MutableStateFlow(false)
     val uiState = MutableStateFlow<AgentUiState>(AgentUiState.Idle)
     val currentStep = MutableStateFlow(0)
@@ -57,6 +68,7 @@ class AgentRuntime(context: Context) {
     val planSteps = MutableStateFlow<List<Pair<String, TimelineItemState>>>(emptyList())
     val history = MutableStateFlow<List<AgentRunUi>>(emptyList())
     val preflightError = MutableStateFlow<String?>(null)
+    val reconnectOffer = MutableStateFlow<String?>(null)
 
     init {
         statusConnected.value = AccessibilityConnection.connected
@@ -79,6 +91,7 @@ class AgentRuntime(context: Context) {
             return
         }
         preflightError.value = null
+        reconnectOffer.value = null
         // Phase 20: bring the target app to the front so the run starts
         // on a ready screen. Launching an already open app simply focuses
         // it, so this is always safe to call after preflight.
@@ -90,12 +103,27 @@ class AgentRuntime(context: Context) {
         val cancellationToken = AgentCancellationToken()
         token = cancellationToken
         executionActive.value = true
+        runLive = true
+        connectionLostDuringRun = false
         taskName.value = clean
         uiState.value = AgentUiState.Planning
         currentStep.value = 0
         logLines.value = emptyList()
         planSteps.value = emptyList()
         statusConnected.value = AccessibilityConnection.connected
+
+        // Phase 24: while the run is live, watch the accessibility link.
+        // A drop is recorded so a later reconnect can offer a re-run.
+        monitorJob = scope.launch {
+            while (runLive) {
+                val live = AccessibilityConnection.connected
+                if (!live) {
+                    connectionLostDuringRun = true
+                }
+                statusConnected.value = live
+                delay(CONNECTION_POLL_MS)
+            }
+        }
 
         scope.launch {
             val driver = AndroidAccessibilityDriver()
@@ -130,7 +158,20 @@ class AgentRuntime(context: Context) {
                 }
             }
             applyResult(clean, result)
+            runLive = false
+            monitorJob?.cancel()
+            monitorJob = null
             statusConnected.value = AccessibilityConnection.connected
+            // Phase 24: when the accessibility link dropped mid-run and
+            // the service is connected again, keep the instruction and
+            // tell the user the run can be retried with one tap.
+            if (connectionLostDuringRun && AccessibilityConnection.connected) {
+                reconnectOffer.value = clean
+                preflightError.value =
+                    "The accessibility service disconnected during the run and " +
+                        "has reconnected. The run can be retried with the same " +
+                        "instruction using Run again."
+            }
         }
     }
 
@@ -146,16 +187,19 @@ class AgentRuntime(context: Context) {
             return "Motion accessibility service is off. " +
                 "Enable it in system accessibility settings, then try again."
         }
+        // Phase 24: the target name comes from the registry, so a second
+        // target application never needs hardcoded strings here.
+        val targetLabel = TargetAdapterRegistry.displayNameFor(TARGET_PACKAGE)
         val targetInstalled = runCatching {
             appContext.packageManager.getPackageInfo(TARGET_PACKAGE, 0)
         }.isSuccess
         if (!targetInstalled) {
-            return "Alight Motion is not installed on this device, " +
+            return targetLabel + " is not installed on this device, " +
                 "so the run has nowhere to execute."
         }
         // Phase 23: the target must be on the allowed apps list.
         if (!allowedApps.isAllowed(TARGET_PACKAGE)) {
-            return "Alight Motion is not on the allowed applications " +
+            return targetLabel + " is not on the allowed applications " +
                 "list. Allow it in Settings to run."
         }
         return null
@@ -164,6 +208,24 @@ class AgentRuntime(context: Context) {
     /** Dismisses the preflight banner shown by the dashboard (Phase 19). */
     fun dismissPreflight() {
         preflightError.value = null
+    }
+
+    /**
+     * Phase 24: runs the instruction from the pending reconnect offer,
+     * when one exists. Returns false when there is nothing to re-run or a
+     * run is already active.
+     */
+    fun rerunLast(): Boolean {
+        val instruction = reconnectOffer.value ?: return false
+        if (executionActive.value) return false
+        reconnectOffer.value = null
+        start(instruction)
+        return true
+    }
+
+    /** Phase 24: drops a pending reconnect offer without re-running. */
+    fun dismissReconnectOffer() {
+        reconnectOffer.value = null
     }
 
     /** Refreshes the cached accessibility connection flag (Phase 16). */
@@ -193,7 +255,6 @@ class AgentRuntime(context: Context) {
         val detail = when {
             target?.normalizedText != null -> " " + target.normalizedText
             target?.text != null -> " " + target.text
-
             target?.contentDescription != null -> " " + target.contentDescription
             action.parameters.containsKey("packageName") ->
                 " " + action.parameters["packageName"]
@@ -288,12 +349,17 @@ class AgentRuntime(context: Context) {
     /** Close button: cancel if still running and dismiss the console. */
     fun closeExecution() {
         token?.cancel()
+        runLive = false
+        monitorJob?.cancel()
+        monitorJob = null
         executionActive.value = false
         uiState.value = AgentUiState.Cancelled
     }
 
     fun shutdown() {
         token?.cancel()
+        runLive = false
+        monitorJob?.cancel()
         scope.cancel()
     }
 
@@ -334,7 +400,11 @@ class AgentRuntime(context: Context) {
     }
 
     companion object {
-        /** Must match AlightMotionAdapter.packageName. */
-        private const val TARGET_PACKAGE = "com.alightmotion.motion"
+        /**
+         * Resolved through the registry (Phase 24): adding a second target
+         * application later only changes the registry, not this runtime.
+         */
+        private const val TARGET_PACKAGE = TargetAdapterRegistry.ALIGHT_MOTION_PACKAGE
+        private const val CONNECTION_POLL_MS = 500L
     }
 }

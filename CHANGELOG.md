@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.24.0] PHASE 24
+### Added
+- Reconnect detection and re-run offer: while a run executes, the runtime now watches the accessibility connection. When the link drops mid-run and the service later reconnects, the interrupted instruction is kept as a reconnect offer and the dashboard banner says the run can be retried; rerunLast restarts the same instruction with one tap and dismissReconnectOffer drops the offer.
+- Configuration export and import: a new ConfigPorter serializes the safety profile, the allowed applications list, the selected AI provider, and every stored provider configuration (key, model, base URL) into one JSON document, and imports the same document back through the stores, so validation and coercion stay in one place. Import checks the schema version and skips malformed entries instead of failing the whole import.
+- Multi-adapter foundation: a new TargetAdapterRegistry in core/adapter lists every target application the agent can drive (today Alight Motion), answers isKnown and human readable display names for any package, and maps each known package to its adapter class. The runtime preflight and its target constant now resolve through the registry, so no package name is hardcoded in the app layer anymore.
+- 3 JVM tests for the registry (known target lookup, unknown package fallback, adapter class resolution).
+### Changed
+- app version 0.24.0.
+
+
 ## [0.23.0] PHASE 23
 ### Added
 - Allowed applications allowlist: a new AllowedApps model in core/domain holds the list of applications the agent may open and drive, with structural package name validation, deduplication, and a bounded list size. The default list contains Alight Motion only.
@@ -15,7 +25,8 @@
 - Safety limits editor in Settings: the Automation card replaces the hardcoded timeout and retry rows with four editable fields (action timeout, retry limit, recovery attempts, recovery backoff base), a Save limits action, and a Reset defaults action. Values are stored on the device only, coerced into a legal range before they are persisted, and applied by AgentRuntime on the next run.
 - 9 JVM tests for the profile (defaults, validation, clamping, caps, backoff) and its engine enforcement (retry cap, timeout cap, profile driven recovery).
 ### Changed
-- app version 0.22.0.
+- app
+ version 0.22.0.
 
 ## [0.21.0] PHASE 21
 ### Added
@@ -41,8 +52,8 @@ runtime brings Alight Motion to the front (launch intent) so every run starts on
 MotionAccessibilityService is connected and that Alight Motion is installed on the device before the run starts, and refuses the run with a clear reason instead of failing halfway through execution.
 - Dismissible preflight banner on the dashboard: when a run is refused,
 the reason appears as an error card under the RUN button and can be dismissed once the environment is fixed.
-### Chang
-ed
+###
+ Changed
 - app version 0.19.0.
 
 ## [0.18.0] PHASE 18
@@ -81,8 +92,8 @@ device accessibility settings screen so the user can enable the service without 
 
 ## [0.15.0] PHASE 15
 ### Added
-- More network provid
-er presets: Groq, OpenRouter, and self hosted Ollama join OpenAI, Anthropic, Google Gemini, and custom OpenAI compatible endpoints in the Settings provider catalog. Every preset ships a default base URL and model and uses the OpenAI compatible chat endpoint already implemented by NetworkAiProvider.
+- More networ
+k provider presets: Groq, OpenRouter, and self hosted Ollama join OpenAI, Anthropic, Google Gemini, and custom OpenAI compatible endpoints in the Settings provider catalog. Every preset ships a default base URL and model and uses the OpenAI compatible chat endpoint already implemented by NetworkAiProvider.
 - Per provider hints in Settings: the Ollama entry explains that the key
 field is ignored by the server and which base URL to use on the Android emulator versus a physical device.
 - Network security config: cleartext HTTP is permitted only for localhost,
@@ -109,8 +120,8 @@ Room database with its instruction, outcome, failure reason, action counts, dura
 database builder; the DAO exposes the runs as a Flow.
 - AgentRuntime now exposes a history StateFlow fed from the database and
 inserts a record for every terminal run result.
-- The History screen lists real persisted runs (empty state w
-hen none) and the workflow detail screen shows real stats and replays the actual technical log of the selected run.
+- The History screen lists real persisted runs (emp
+ty state when none) and the workflow detail screen shows real stats and replays the actual technical log of the selected run.
 ### Changed
 - Navigation keeps the selected run id instead of a mock name; the detail
 screen is found from the live history list.
@@ -142,8 +153,8 @@ runs use the in app configured network provider when a key is present.
 ### Added
 - core/agent module with MotionAgent: the end to end orchestrator chaining
 planner, target adapter, and execution engine into a single typed run.
-- AgentResult termina
-l model: Completed, Failed, Cancelled, PlanningFailed, TargetUnavailable, InvalidInstruction.
+- AgentRes
+ult terminal model: Completed, Failed, Cancelled, PlanningFailed, TargetUnavailable, InvalidInstruction.
 - LocalTemplateProvider: a deterministic on device provider behind the same
 AIProvider interface; output passes the full planning validation pipeline.
 - Eight end to end JVM tests over FakeAutomationDriver and FakeTargetResolver.
@@ -219,5 +230,5 @@ Workflow detail, Settings, plus error and recovery panels.
 - Repository skeleton and documentation.
 - Phase 1 specifications across ten documents plus roadmap.
 - Domain model and agent state machine with legal transition validation.
-- Unit tests for domain invariants and state t
-ransitions.
+- Unit tests for domain invarian
+ts and state transitions.
