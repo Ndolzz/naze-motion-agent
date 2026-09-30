@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
@@ -26,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +49,7 @@ import com.naze.motion.app.ui.theme.NazeTypography
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 /** Compact activity log over persisted runs, not big cards. */
 @Composable
@@ -165,21 +168,26 @@ private fun DetailRow(label: String, value: String) {
 }
 
 /**
- * Settings (Phase 12): API keys are entered here, inside the app, and stay
- * on this device. Keys are masked by default, stored in app private
- * storage, and used only for the selected provider. Multiple providers can
- * be configured at once; one is active.
+ * Settings (Phase 12/14): API keys are entered here, inside the app, and
+ * stay on this device. Keys are masked by default, stored in app private
+ * storage, and used only for the selected provider. The Test button
+ * verifies the current configuration with one real planning call before
+ * saving. Multiple providers can be configured at once; one is active.
  */
 @Composable
 fun SettingsScreen() {
     val context = LocalContext.current
     val store = remember { ApiKeyStore(context.applicationContext) }
+    val scope = rememberCoroutineScope()
     var selectedId by remember { mutableStateOf(store.selectedId()) }
     var apiKey by remember(selectedId) { mutableStateOf(store.load(selectedId).apiKey) }
     var model by remember(selectedId) { mutableStateOf(store.load(selectedId).model) }
     var baseUrl by remember(selectedId) { mutableStateOf(store.load(selectedId).baseUrl) }
     var showKey by remember { mutableStateOf(false) }
     var savedTick by remember { mutableStateOf(0) }
+    var testing by remember { mutableStateOf(false) }
+    var testMessage by remember { mutableStateOf<String?>(null) }
+    var testOk by remember { mutableStateOf(false) }
 
     val entry = remember(selectedId) { ApiKeyStore.catalog.firstOrNull { it.id == selectedId } }
     val saved = remember(savedTick, selectedId) { store.hasKey(selectedId) }
@@ -308,6 +316,31 @@ fun SettingsScreen() {
                                 leadingIcon = Icons.Rounded.Check,
                             )
                             NazeButton(
+                                text = if (testing) "Testing" else "Test",
+                                onClick = {
+                                    val kind = entry.kind
+                                    if (kind == null || testing) return@NazeButton
+                                    testing = true
+                                    testMessage = null
+                                    scope.launch {
+                                        val result = ApiKeyStore.testConfig(
+                                            kind = kind,
+                                            baseUrl = baseUrl.ifBlank { entry.defaultBaseUrl ?: "" },
+                                            apiKey = apiKey,
+                                            model = model,
+                                        )
+                                        testOk = result.isSuccess
+                                        testMessage = result.fold(
+                                            { it },
+                                            { e -> e.message ?: "test failed" },
+                                        )
+                                        testing = false
+                                    }
+                                },
+                                enabled = !testing && apiKey.isNotBlank() && model.isNotBlank(),
+                                leadingIcon = Icons.Rounded.Bolt,
+                            )
+                            NazeButton(
                                 text = "Clear",
                                 onClick = {
                                     store.clear(selectedId)
@@ -316,6 +349,14 @@ fun SettingsScreen() {
                                     baseUrl = ""
                                     savedTick = savedTick + 1
                                 },
+                            )
+                        }
+                        if (testMessage != null) {
+                            Spacer(Modifier.height(8.dp))
+                            NazeStatusLabel(
+                                label = testMessage!!,
+                                color = if (testOk) NazeColors.success else NazeColors.error,
+                                icon = if (testOk) Icons.Rounded.Check else Icons.Rounded.ErrorOutline,
                             )
                         }
                         if (saved) {
@@ -356,7 +397,7 @@ fun SettingsScreen() {
             NazeCard {
                 Column {
                     Text("About", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Version", "0.13.0")
+                    DetailRow("Version", "0.14.0")
                     DetailRow("Open source licenses", "View")
                 }
             }

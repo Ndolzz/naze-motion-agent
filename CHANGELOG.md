@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.14.0] PHASE 14
+### Added
+- Live execution timeline: the console renders the real validated plan.
+  MotionAgent gains an optional onPlan callback invoked after planning and
+  before execution; the runtime maps each action to a short label and the
+  structured engine log drives per step states (active, success, recovering,
+  failed) as events arrive.
+- Test button in Settings: verifies the current key, model, and base URL
+  with one real planning call before saving, with an inline success or
+  failure message (ApiKeyStore.testConfig).
+### Changed
+- ExecutionScreen no longer uses MockData: the timeline comes from the plan
+  and the technical log streams the actual engine events, with a building
+  state while the plan is not ready yet.
+- app version 0.14.0.
+
 ## [0.13.0] PHASE 13
 ### Added
 - Persistent run history: every finished agent run is stored in a local

@@ -16,6 +16,7 @@
 | 11 | End to end flow | done |
 | 12 | In app multi provider API keys + network providers | done |
 | 13 | Persistent run history | done |
+| 14 | Live execution timeline + API key test | done |
 
 Phase 7 note: core/access is an Android library holding
 MotionAccessibilityService, AndroidAccessibilityDriver,
@@ -40,10 +41,9 @@ with JVM end to end tests over the fake doubles. The app replaces its mock
 state with a real AgentRuntime over AndroidAccessibilityDriver,
 AccessibilityTargetResolver, AlightMotionAdapter, and the AiPlanner backed by
 LocalTemplateProvider, a deterministic on device template provider behind the
-same provider interface (network model providers arrive with a later phase).
-The dashboard runs real instructions, the status bar reflects the real
-accessibility connection, and the execution console streams the structured
-engine log.
+same provider interface. The dashboard runs real instructions, the status bar
+reflects the real accessibility connection, and the execution console streams
+the structured engine log.
 
 Phase 12 note: API keys are entered inside the app on the Settings screen and
 stored in app private storage on the device; nothing is baked into the build.
@@ -61,3 +61,11 @@ Phase 13 note: every finished run is persisted to a local Room database
 structured engine log). The History screen and the workflow detail screen
 render from that real data instead of mock entries; the detail screen replays
 the actual technical log of the run.
+
+Phase 14 note: the execution console timeline is now the real validated plan.
+MotionAgent exposes the plan through an onPlan callback before execution, the
+runtime maps every action to a short label, and the structured engine log
+drives the state of each step (active, success, recovering, failed) live. The
+Settings screen gains a Test button that verifies the current key, model, and
+base URL with one real planning call before saving; the result message is
+shown inline. MockData is no longer used by the execution console.

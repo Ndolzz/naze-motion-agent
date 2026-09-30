@@ -5,13 +5,18 @@ import com.naze.motion.core.ai.AIProvider
 import com.naze.motion.core.ai.AiProviderConfig
 import com.naze.motion.core.ai.AiProviderKind
 import com.naze.motion.core.ai.NetworkAiProvider
+import com.naze.motion.core.ai.PlanningRequest
 import com.naze.motion.core.agent.LocalTemplateProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
- * ApiKeyStore (Phase 12): in app API key storage. Keys are entered by the
- * user inside the Settings screen, kept in the app private storage on this
- * device only, and never baked into the build or logged. Multiple
- * providers can hold a key at once; one is selected as active.
+ * ApiKeyStore (Phase 12/14): in app API key storage. Keys are entered by
+ * the user inside the Settings screen, kept in the app private storage on
+ * this device only, and never baked into the build or logged. Multiple
+ * providers can hold a key at once; one is selected as active. testConfig
+ * verifies a candidate configuration with one real planning call before
+ * the user saves it.
  */
 class ApiKeyStore(context: Context) {
 
@@ -105,5 +110,28 @@ class ApiKeyStore(context: Context) {
                 "custom", "Custom (OpenAI compatible)", AiProviderKind.OPENAI_COMPATIBLE,
             ),
         )
+
+        /**
+         * Verifies a candidate configuration with one real planning call
+         * (Phase 14). Success means the endpoint accepted the key, the
+         * model exists, and the response parsed as a planner plan.
+         */
+        suspend fun testConfig(
+            kind: AiProviderKind,
+            baseUrl: String,
+            apiKey: String,
+            model: String,
+        ): Result<String> = withContext(Dispatchers.IO) {
+            if (apiKey.isBlank() || model.isBlank() || baseUrl.isBlank()) {
+                return@withContext Result.failure(IllegalStateException("incomplete configuration"))
+            }
+            val provider = NetworkAiProvider(AiProviderConfig(kind, baseUrl, apiKey, model))
+            val request = try {
+                PlanningRequest("open the target app and wait", "com.alightmotion.motion")
+            } catch (e: IllegalArgumentException) {
+                return@withContext Result.failure(e)
+            }
+            provider.complete(request).map { "provider responded with a valid plan" }
+        }
     }
 }

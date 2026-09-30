@@ -66,7 +66,7 @@ private enum class Destination(val label: String) {
 fun NazeMotionApp() {
     var destination by remember { mutableStateOf(Destination.AGENT) }
     var detailId by remember { mutableStateOf<Long?>(null) }
-    // Phase 11/12/13: real runtime state replaces the mock execution preview.
+    // Phase 11 to 14: real runtime state replaces the mock execution preview.
     val context = LocalContext.current
     val runtime = remember { AgentRuntime(context.applicationContext) }
     val executionActive by runtime.executionActive.collectAsState()
@@ -74,6 +74,8 @@ fun NazeMotionApp() {
     val currentIndex by runtime.currentStep.collectAsState()
     val statusConnected by runtime.statusConnected.collectAsState()
     val taskName by runtime.taskName.collectAsState()
+    val planSteps by runtime.planSteps.collectAsState()
+    val logLines by runtime.logLines.collectAsState()
     val history by runtime.history.collectAsState()
 
     DisposableEffect(Unit) {
@@ -106,6 +108,8 @@ fun NazeMotionApp() {
                     taskName = taskName,
                     state = agentState,
                     currentIndex = currentIndex,
+                    timeline = planSteps,
+                    logEntries = logLines,
                     onStopAgent = { runtime.stop() },
                 )
                 destination == Destination.AGENT -> AgentDashboardScreen(

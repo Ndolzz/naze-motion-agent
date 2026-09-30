@@ -6,6 +6,7 @@ import com.naze.motion.core.adapter.TargetApplicationAdapter
 import com.naze.motion.core.ai.AiPlanner
 import com.naze.motion.core.ai.PlanningError
 import com.naze.motion.core.ai.PlanningRequest
+import com.naze.motion.core.domain.ActionPlan
 import com.naze.motion.core.domain.AgentCancellationToken
 import com.naze.motion.core.domain.TargetApplication
 import com.naze.motion.core.engine.ExecutionEngine
@@ -16,7 +17,8 @@ import com.naze.motion.core.engine.ExecutionOutcome
  * target adapter -> execution engine into a single typed run. The agent
  * itself stays dumb: it owns no Android types and no app specific logic, so
  * the full pipeline is testable on the JVM with fake doubles (NMA-ARCH-007,
- * NMA-TEST-002).
+ * NMA-TEST-002). The optional onPlan callback lets the caller surface the
+ * validated plan (for a live timeline) before execution starts.
  */
 class MotionAgent(
     private val planner: AiPlanner,
@@ -33,6 +35,7 @@ class MotionAgent(
         driver: AutomationDriver,
         resolver: TargetResolver,
         cancellationToken: AgentCancellationToken,
+        onPlan: ((ActionPlan) -> Unit)? = null,
     ): AgentResult {
         val request = try {
             PlanningRequest(instruction.trim(), adapter.packageName)
@@ -47,6 +50,9 @@ class MotionAgent(
             return AgentResult.PlanningFailed(error)
         }
 
+        val validatedPlan = plan.getOrThrow()
+        onPlan?.invoke(validatedPlan)
+
         if (!adapter.open()) {
             return AgentResult.TargetUnavailable(adapter.packageName)
         }
@@ -55,7 +61,7 @@ class MotionAgent(
         val target = TargetApplication(adapter.packageName, adapter.displayName)
         val summary = engine.execute(
             taskId,
-            plan.getOrThrow(),
+            validatedPlan,
             driver,
             resolver,
             target,

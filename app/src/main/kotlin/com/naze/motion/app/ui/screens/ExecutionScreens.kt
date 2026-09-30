@@ -18,7 +18,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.naze.motion.app.ui.components.NazeActionRow
@@ -30,23 +29,24 @@ import com.naze.motion.app.ui.components.NazeSection
 import com.naze.motion.app.ui.components.NazeStatusLabel
 import com.naze.motion.app.ui.components.TimelineItemState
 import com.naze.motion.app.ui.model.AgentUiState
-import com.naze.motion.app.ui.model.MockData
 import com.naze.motion.app.ui.theme.NazeColors
 import com.naze.motion.app.ui.theme.NazeTypography
 
 /**
- * Precision Execution Console. Current action emphasized, completed muted,
- * pending subtle. Stop Agent always visible. Mock data until Phase 5 wiring.
+ * Precision Execution Console (Phase 14): the timeline is the real
+ * validated plan and updates live from the engine log; the technical log
+ * streams the actual engine events. Stop Agent always visible.
  */
 @Composable
 fun ExecutionScreen(
     taskName: String,
     state: AgentUiState,
     currentIndex: Int,
+    timeline: List<Pair<String, TimelineItemState>>,
+    logEntries: List<Pair<String, String>>,
     onStopAgent: () -> Unit,
 ) {
     var logExpanded by remember { mutableStateOf(false) }
-    val timeline = MockData.timeline(currentIndex)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -62,8 +62,12 @@ fun ExecutionScreen(
         item {
             NazeCard {
                 Column {
-                    timeline.forEachIndexed { i, entry ->
-                        NazeActionRow(index = i + 1, label = entry.label, state = entry.state)
+                    if (timeline.isEmpty()) {
+                        NazeProgress("Building the plan")
+                    } else {
+                        timeline.forEachIndexed { i, (label, itemState) ->
+                            NazeActionRow(index = i + 1, label = label, state = itemState)
+                        }
                     }
                 }
             }
@@ -81,7 +85,7 @@ fun ExecutionScreen(
                     Spacer(Modifier.height(12.dp))
                     Text("Current action", style = NazeTypography.caption, color = NazeColors.textMuted)
                     Text(
-                        timeline.getOrNull(currentIndex)?.label ?: "Finishing",
+                        timeline.getOrNull(currentIndex)?.first ?: "Finishing",
                         style = NazeTypography.body.copy(color = NazeColors.textPrimary),
                     )
                 }
@@ -89,8 +93,10 @@ fun ExecutionScreen(
         }
         item {
             NazeSection(title = "Technical log") {
-                if (logExpanded) {
-                    NazeLog(MockData.log)
+                if (logEntries.isEmpty()) {
+                    Text("No events yet.", style = NazeTypography.caption, color = NazeColors.textMuted)
+                } else if (logExpanded) {
+                    NazeLog(logEntries)
                 } else {
                     NazeButton(text = "Expand log", onClick = { logExpanded = true })
                 }

@@ -1,6 +1,7 @@
 package com.naze.motion.app.agent
 
 import android.content.Context
+import com.naze.motion.app.ui.components.TimelineItemState
 import com.naze.motion.app.ui.model.AgentUiState
 import com.naze.motion.core.access.AccessibilityConnection
 import com.naze.motion.core.access.AccessibilityTargetResolver
@@ -9,6 +10,8 @@ import com.naze.motion.core.adapter.AlightMotionAdapter
 import com.naze.motion.core.agent.AgentResult
 import com.naze.motion.core.agent.MotionAgent
 import com.naze.motion.core.ai.AiPlanner
+import com.naze.motion.core.domain.Action
+import com.naze.motion.core.domain.ActionPlan
 import com.naze.motion.core.domain.AgentCancellationToken
 import com.naze.motion.core.engine.ExecutionEngine
 import kotlinx.coroutines.CoroutineScope
@@ -20,12 +23,13 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * AgentRuntime (Phase 11/12/13): the real wiring between the UI and the
+ * AgentRuntime (Phase 11/12/13/14): the real wiring between the UI and the
  * core pipeline. The dashboard starts a real run through MotionAgent over
- * AndroidAccessibilityDriver, AccessibilityTargetResolver, and
+AndroidAccessibilityDriver, AccessibilityTargetResolver, and
  * AlightMotionAdapter. The planner provider is built from ApiKeyStore.
- * Every finished run is persisted to the local Room database and History
- * screens render from that real data (Phase 13).
+ * Every finished run is persisted to the local Room database. The
+ * execution console renders a live timeline built from the validated plan
+ * and updated from the structured engine log (Phase 14).
  */
 class AgentRuntime(context: Context) {
 
@@ -40,6 +44,7 @@ class AgentRuntime(context: Context) {
     val statusConnected = MutableStateFlow(false)
     val taskName = MutableStateFlow("")
     val logLines = MutableStateFlow<List<Pair<String, String>>>(emptyList())
+    val planSteps = MutableStateFlow<List<Pair<String, TimelineItemState>>>(emptyList())
     val history = MutableStateFlow<List<AgentRunUi>>(emptyList())
 
     init {
@@ -62,6 +67,7 @@ class AgentRuntime(context: Context) {
         uiState.value = AgentUiState.Planning
         currentStep.value = 0
         logLines.value = emptyList()
+        planSteps.value = emptyList()
         statusConnected.value = AccessibilityConnection.connected
 
         scope.launch {
@@ -69,14 +75,50 @@ class AgentRuntime(context: Context) {
             val resolver = AccessibilityTargetResolver(driver)
             val adapter = AlightMotionAdapter(driver)
             val engine = ExecutionEngine()
+            var stepIndex = 0
             engine.log().onEvent { event ->
                 logLines.value = logLines.value + (formatTime(event.timestampMs) to event.type)
+                when (event.type) {
+                    "ACTION_COMPLETED" -> {
+                        markStep(stepIndex, TimelineItemState.SUCCESS)
+                        stepIndex = stepIndex + 1
+                        currentStep.value = stepIndex
+                        markStep(stepIndex, TimelineItemState.ACTIVE)
+                    }
+                    "RECOVERY_STARTED" -> markStep(stepIndex, TimelineItemState.RECOVERING)
+                    "RECOVERY_COMPLETED" -> markStep(stepIndex, TimelineItemState.ACTIVE)
+                    "EXECUTION_FAILED" -> markStep(stepIndex, TimelineItemState.FAILED)
+                }
             }
             val agent = MotionAgent(AiPlanner(store.activeProvider()), adapter, engine)
-            val result = agent.run(clean, driver, resolver, cancellationToken)
+            val result = agent.run(clean, driver, resolver, cancellationToken) { plan ->
+                planSteps.value = plan.actions.mapIndexed { index, action ->
+                    describe(action) to if (index == 0) TimelineItemState.ACTIVE else TimelineItemState.PENDING
+                }
+            }
             applyResult(clean, result)
             statusConnected.value = AccessibilityConnection.connected
         }
+    }
+
+    private fun markStep(index: Int, state: TimelineItemState) {
+        val steps = planSteps.value
+        if (index < 0 || index >= steps.size) return
+        planSteps.value = steps.toMutableList().also { it[index] = it[index].first to state }
+    }
+
+    /** Short human readable label for one planned action. */
+    private fun describe(action: Action): String {
+        val target = action.target
+        val detail = when {
+            target?.normalizedText != null -> " " + target.normalizedText
+            target?.text != null -> " " + target.text
+            target?.contentDescription != null -> " " + target.contentDescription
+            action.parameters.containsKey("packageName") -> " " + action.parameters["packageName"]
+            action.parameters.containsKey("durationMs") -> " " + action.parameters["durationMs"] + "ms"
+            else -> ""
+        }
+        return action.type.name + detail
     }
 
     private suspend fun applyResult(instruction: String, result: AgentResult) {
