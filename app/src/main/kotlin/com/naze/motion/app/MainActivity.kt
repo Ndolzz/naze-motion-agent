@@ -66,7 +66,7 @@ private enum class Destination(val label: String) {
 fun NazeMotionApp() {
     var destination by remember { mutableStateOf(Destination.AGENT) }
     var detailId by remember { mutableStateOf<Long?>(null) }
-    // Phase 11 to 14: real runtime state replaces the mock execution preview.
+    // Phase 11 to 16: real runtime state replaces the mock execution preview.
     val context = LocalContext.current
     val runtime = remember { AgentRuntime(context.applicationContext) }
     val executionActive by runtime.executionActive.collectAsState()
@@ -120,11 +120,16 @@ fun NazeMotionApp() {
                     WorkflowDetailScreen(
                         run = history.first { it.id == detailId },
                         onBack = { detailId = null },
+                        onDeleteRun = {
+                            runtime.deleteRun(detailId!!)
+                            detailId = null
+                        },
                     )
                 destination == Destination.HISTORY || destination == Destination.WORKFLOWS ->
                     HistoryScreen(
                         runs = history,
                         onOpenDetail = { detailId = it },
+                        onDeleteAll = { runtime.clearHistory() },
                     )
                 destination == Destination.SETTINGS -> SettingsScreen()
             }

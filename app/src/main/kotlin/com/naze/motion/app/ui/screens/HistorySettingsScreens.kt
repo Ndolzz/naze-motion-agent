@@ -1,5 +1,7 @@
 package com.naze.motion.app.ui.screens
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Key
@@ -24,6 +27,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,6 +41,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.naze.motion.app.agent.AgentRunUi
 import com.naze.motion.app.agent.ApiKeyStore
+import com.naze.motion.core.access.AccessibilityConnection
 import com.naze.motion.app.ui.components.NazeButton
 import com.naze.motion.app.ui.components.NazeCard
 import com.naze.motion.app.ui.components.NazeEmptyState
@@ -49,17 +54,37 @@ import com.naze.motion.app.ui.theme.NazeTypography
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** Compact activity log over persisted runs, not big cards. */
 @Composable
-fun HistoryScreen(runs: List<AgentRunUi>, onOpenDetail: (Long) -> Unit) {
+fun HistoryScreen(
+    runs: List<AgentRunUi>,
+    onOpenDetail: (Long) -> Unit,
+    onDeleteAll: (() -> Unit)? = null,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item { Spacer(Modifier.height(8.dp)) }
-        item { Text("History", style = NazeTypography.pageTitle, color = NazeColors.textPrimary) }
+        item {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("History", style = NazeTypography.pageTitle, color = NazeColors.textPrimary)
+                Spacer(Modifier.weight(1f))
+                if (onDeleteAll != null && runs.isNotEmpty()) {
+                    NazeButton(
+                        text = "Clear all",
+                        onClick = onDeleteAll,
+                        leadingIcon = Icons.Rounded.DeleteOutline,
+                    )
+                }
+            }
+        }
         if (runs.isEmpty()) {
             item {
                 NazeEmptyState(
@@ -96,7 +121,11 @@ fun HistoryScreen(runs: List<AgentRunUi>, onOpenDetail: (Long) -> Unit) {
 
 /** Workflow detail from a persisted run: real stats and real log. */
 @Composable
-fun WorkflowDetailScreen(run: AgentRunUi, onBack: () -> Unit) {
+fun WorkflowDetailScreen(
+    run: AgentRunUi,
+    onBack: () -> Unit,
+    onDeleteRun: (() -> Unit)? = null,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -141,6 +170,15 @@ fun WorkflowDetailScreen(run: AgentRunUi, onBack: () -> Unit) {
                 }
             }
         }
+        if (onDeleteRun != null) {
+            item {
+                NazeButton(
+                    text = "Delete run",
+                    onClick = onDeleteRun,
+                    leadingIcon = Icons.Rounded.DeleteOutline,
+                )
+            }
+        }
     }
 }
 
@@ -168,11 +206,12 @@ private fun DetailRow(label: String, value: String) {
 }
 
 /**
- * Settings (Phase 12/14/15): API keys are entered here, inside the app, and
- * stay on this device. Keys are masked by default, stored in app private
- * storage, and used only for the selected provider. The Test button
- * verifies the current configuration with one real planning call before
- * saving. Multiple providers can be configured at once; one is active.
+ * Settings (Phase 12/14/15/16): API keys are entered here, inside the app,
+ * and stay on this device. Keys are masked by default, stored in app
+ * private storage, and used only for the selected provider. The Test
+ * button verifies the current configuration with one real planning call
+ * before saving. The Automation card shows the real accessibility service
+ * connection state and can open the system accessibility settings.
  */
 @Composable
 fun SettingsScreen() {
@@ -188,6 +227,16 @@ fun SettingsScreen() {
     var testing by remember { mutableStateOf(false) }
     var testMessage by remember { mutableStateOf<String?>(null) }
     var testOk by remember { mutableStateOf(false) }
+    var serviceConnected by remember { mutableStateOf(AccessibilityConnection.connected) }
+
+    // Keep the service state fresh while Settings is visible, including
+    // after the user returns from the system accessibility settings.
+    LaunchedEffect(Unit) {
+        while (true) {
+            serviceConnected = AccessibilityConnection.connected
+            delay(1000)
+        }
+    }
 
     val entry = remember(selectedId) { ApiKeyStore.catalog.firstOrNull { it.id == selectedId } }
     val saved = remember(savedTick, selectedId) { store.hasKey(selectedId) }
@@ -384,10 +433,26 @@ fun SettingsScreen() {
             NazeCard {
                 Column {
                     Text("Automation", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Accessibility Service", "Off")
+                    Spacer(Modifier.height(6.dp))
+                    NazeStatusLabel(
+                        label = if (serviceConnected) "Service connected" else "Service off",
+                        color = if (serviceConnected) NazeColors.success else NazeColors.error,
+                        icon = if (serviceConnected) Icons.Rounded.Check else Icons.Rounded.ErrorOutline,
+                    )
+                    Spacer(Modifier.height(6.dp))
                     DetailRow("Action timeout", "5000 ms")
                     DetailRow("Retry limit", "2")
                     DetailRow("Verification mode", "Strict")
+                    Spacer(Modifier.height(8.dp))
+                    NazeButton(
+                        text = "Open system accessibility settings",
+                        onClick = {
+                            context.startActivity(
+                                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                            )
+                        },
+                        leadingIcon = Icons.Rounded.Settings,
+                    )
                 }
             }
         }
@@ -405,7 +470,7 @@ fun SettingsScreen() {
             NazeCard {
                 Column {
                     Text("About", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Version", "0.15.0")
+                    DetailRow("Version", "0.16.0")
                     DetailRow("Open source licenses", "View")
                 }
             }
