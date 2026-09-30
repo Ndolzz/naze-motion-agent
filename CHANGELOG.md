@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.19.0] PHASE 19
+### Added
+- Preflight check before every run: AgentRuntime verifies that
+  MotionAccessibilityService is connected and that Alight Motion is
+  installed on the device before the run starts, and refuses the run
+  with a clear reason instead of failing halfway through execution.
+- Dismissible preflight banner on the dashboard: when a run is refused,
+  the reason appears as an error card under the RUN button and can be
+  dismissed once the environment is fixed.
+### Changed
+- app version 0.19.0.
+
 ## [0.18.0] PHASE 18
 ### Added
 - Real dashboard summary: the Agent tab now computes live stats from the

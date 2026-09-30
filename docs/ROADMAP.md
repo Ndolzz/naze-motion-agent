@@ -21,6 +21,7 @@
 | 16 | History delete/clear + real accessibility status in Settings | done |
 | 17 | Plan timeline replay in detail + destructive action confirmation | done |
 | 18 | Real dashboard summary + history search | done |
+| 19 | Preflight check before run | done |
 
 Phase 7 note: core/access is an Android library holding
 MotionAccessibilityService, AndroidAccessibilityDriver,
@@ -103,3 +104,11 @@ and lists the three most recent runs, each opening its workflow detail. The
 History screen gains a search field filtering runs by instruction text with
 a dedicated no matches state. MockData is fully removed from the dashboard;
 every screen renders from the real Room data.
+
+Phase 19 note: before every run, AgentRuntime checks that
+MotionAccessibilityService is connected and that Alight Motion is installed
+on the device. A run is refused with a clear reason when either check fails,
+and the dashboard shows the reason as a dismissible error banner under the
+RUN button, instead of starting an execution that would fail halfway
+through. The preflight never mutates state: it only reads the connection
+flag and the package manager.
