@@ -22,12 +22,14 @@
 | 17 | Plan timeline replay in detail + destructive action confirmation | done |
 | 18 | Real dashboard summary + history search | done |
 | 19 | Preflight check before run | done |
+| 20 | Run confirmation + auto launch target + export run log | done |
 
 Phase 7 note: core/access is an Android library holding
 MotionAccessibilityService, AndroidAccessibilityDriver,
 AccessibilityTargetResolver, and AccessibilityObservationProvider. The
 service is user enabled in system settings; a disconnect surfaces as a
-typed failure, never a crash.
+typed failure, never a crash. The service manifest entry lives in the
+core/access library manifest and is merged into the app at build time.
 
 Phase 5 note: the engine runs observe, execute, verify, recover with bounded
 retry and recovery, timeout enforcement, cancellation checks at every boundary,
@@ -112,3 +114,14 @@ and the dashboard shows the reason as a dismissible error banner under the
 RUN button, instead of starting an execution that would fail halfway
 through. The preflight never mutates state: it only reads the connection
 flag and the package manager.
+
+Phase 20 note: pressing RUN asks for an explicit confirmation before the
+agent takes over the device, matching the confirmation pattern already used
+for destructive actions. After the preflight passes, the runtime sends the
+Alight Motion launch intent so the run always starts on a ready screen
+(launching an already open app just focuses it). The workflow detail screen
+gains an Export log button that writes a plain text run report to the app
+cache and shares it through the system sheet via FileProvider; the share
+target receives only a temporary read grant for that one file, and the
+accessibility service stays declared solely in the core/access library
+manifest.

@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.20.0] PHASE 20
+### Added
+- Export run log: the workflow detail screen gains an Export log button
+  that writes a plain text report of the run (instruction, outcome,
+  reason, action counts, duration, end time, plan timeline, and the full
+  technical log) to the app cache and hands it to the system share sheet
+  through a FileProvider, with only a temporary read grant for the
+  chosen target.
+- Run confirmation dialog: pressing RUN now asks for an explicit
+  confirmation before the agent takes over the device, consistent with
+  the existing confirmation pattern for destructive actions.
+- Auto launch of the target app: after the preflight check passes, the
+  runtime brings Alight Motion to the front (launch intent) so every run
+  starts on a ready screen; launching an already open app simply focuses
+  it.
+### Changed
+- app version 0.20.0.
+
 ## [0.19.0] PHASE 19
 ### Added
 - Preflight check before every run: AgentRuntime verifies that
