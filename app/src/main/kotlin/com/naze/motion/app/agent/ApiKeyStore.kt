@@ -11,7 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * ApiKeyStore (Phase 12/14): in app API key storage. Keys are entered by
+ * ApiKeyStore (Phase 12/14/15): in app API key storage. Keys are entered by
  * the user inside the Settings screen, kept in the app private storage on
  * this device only, and never baked into the build or logged. Multiple
  * providers can hold a key at once; one is selected as active. testConfig
@@ -89,6 +89,7 @@ class ApiKeyStore(context: Context) {
             val kind: AiProviderKind?,
             val defaultBaseUrl: String? = null,
             val defaultModel: String? = null,
+            val keyHint: String? = null,
         )
 
         /** Providers the user can configure in app. */
@@ -105,6 +106,21 @@ class ApiKeyStore(context: Context) {
             CatalogEntry(
                 "gemini", "Google Gemini", AiProviderKind.GEMINI,
                 "https://generativelanguage.googleapis.com", "gemini-1.5-flash",
+            ),
+            CatalogEntry(
+                "groq", "Groq", AiProviderKind.OPENAI_COMPATIBLE,
+                "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile",
+            ),
+            CatalogEntry(
+                "openrouter", "OpenRouter", AiProviderKind.OPENAI_COMPATIBLE,
+                "https://openrouter.ai/api/v1", "openai/gpt-4o-mini",
+            ),
+            CatalogEntry(
+                "ollama", "Ollama (self hosted)", AiProviderKind.OPENAI_COMPATIBLE,
+                "http://10.0.2.2:11434/v1", "llama3.1",
+                keyHint = "Runs on your own machine. The key field is ignored by Ollama: " +
+                    "enter any text. On the Android emulator use http://10.0.2.2:11434/v1, " +
+                    "on a physical device use your server address.",
             ),
             CatalogEntry(
                 "custom", "Custom (OpenAI compatible)", AiProviderKind.OPENAI_COMPATIBLE,
