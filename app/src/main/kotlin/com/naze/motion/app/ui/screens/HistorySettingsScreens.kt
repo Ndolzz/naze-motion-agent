@@ -48,9 +48,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.naze.motion.app.agent.AgentRunUi
-import com.naze.motion.app.agent.ApiKeyStore
 import com.naze.motion.app.agent.AllowedAppsStore
-import com.naze.motion.app.agent.SafetySettingsStore
+import com.naze.motion.app.agent.ApiKeyStore
 import com.naze.motion.core.access.AccessibilityConnection
 import com.naze.motion.app.ui.components.NazeActionTimeline
 import com.naze.motion.app.ui.components.NazeButton
@@ -68,7 +67,6 @@ import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
 /** Compact activity log over persisted runs, with a simple search filter. */
 @Composable
 fun HistoryScreen(
@@ -142,11 +140,9 @@ fun HistoryScreen(
                         Text(
                             run.instruction,
                             style = NazeTypography.body.copy(color = NazeColors.textPrimary),
-                  
-          maxLines = 1,
+                            maxLines = 1,
                         )
-   
-                     NazeStatusLabel(
+                        NazeStatusLabel(
                             label = run.outcome + " " + formatEnded(run.endedAtMs),
                             color = if (run.outcome == "Completed") {
                                 NazeColors.success
@@ -190,7 +186,6 @@ fun HistoryScreen(
         )
     }
 }
-
 /** Workflow detail from a persisted run: real plan timeline, stats, and log. */
 @Composable
 fun WorkflowDetailScreen(
@@ -203,8 +198,7 @@ fun WorkflowDetailScreen(
     var confirmDelete by remember { mutableStateOf(false) }
 
     LazyColumn(
-  
-      modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { Spacer(Modifier.height(8.dp)) }
@@ -258,8 +252,7 @@ fun WorkflowDetailScreen(
                     DetailRow("Duration", formatDuration(run.durationMs))
                     DetailRow(
                         "Actions",
-                       
- run.completedCount.toString() + " of " + run.actionCount + " completed",
+                        run.completedCount.toString() + " of " + run.actionCount + " completed",
                     )
                     DetailRow("Ended", formatEnded(run.endedAtMs))
                     DetailRow("Application", "Alight Motion")
@@ -342,7 +335,6 @@ fun WorkflowDetailScreen(
         )
     }
 }
-
 /**
  * Phase 20 export: writes the full run report (instruction, outcome,
  * stats, plan timeline, and technical log) to a text file in the app
@@ -422,31 +414,23 @@ private fun DetailRow(label: String, value: String) {
         Text(value, style = NazeTypography.body.copy(color = NazeColors.textPrimary))
     }
 }
-
 /**
- * Settings (Phase 12 to 22): API keys are entered here, inside the app,
+ * Settings (Phase 12 to 23): API keys are entered here, inside the app,
  * and stay on this device. Keys are masked by default, stored in app
  * private storage, and used only for the selected provider. The Test
  * button verifies the current configuration with one real planning call
  * before saving. The Automation card shows the real accessibility
- * service connection state and can open the system accessibility
- * settings.
+ * service connection state, edits the configurable safety limits
+ * (Phase 22), and can open the system accessibility settings. The
+ * allowed applications card (Phase 23) edits the allowlist the runtime
+ * enforces before every run.
  */
 @Composable
 fun SettingsScreen() {
     val context = LocalContext.current
     val store = remember { ApiKeyStore(context.applicationContext) }
     val safety = remember { SafetySettingsStore(context.applicationContext) }
-    var profile by remember { mutableStateOf(safety.load()) }
-    var timeoutText by remember { mutableStateOf(profile.actionTimeoutMs.toString()) }
-    var attemptsText by remember { mutableStateOf(profile.maxAttempts.toString()) }
-    var recoveryText by remember { mutableStateOf(profile.recoveryMaxAttempts.toString()) }
-    var backoffText by remember { mutableStateOf(profile.recoveryBackoffBaseMs.toString()) }
     val appsStore = remember { AllowedAppsStore(context.applicationContext) }
-    var allowedList by remember { mutableStateOf(appsStore.load()) }
-    var newPackage by remember { mutableStateOf("") }
-    var appMessage by remember { mutableStateOf<String?>(null) }
-    var appOk by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var selectedId by remember { mutableStateOf(store.selectedId()) }
     var apiKey by remember(selectedId) { mutableStateOf(store.load(selectedId).apiKey) }
@@ -458,6 +442,15 @@ fun SettingsScreen() {
     var testMessage by remember { mutableStateOf<String?>(null) }
     var testOk by remember { mutableStateOf(false) }
     var serviceConnected by remember { mutableStateOf(AccessibilityConnection.connected) }
+    var profile by remember { mutableStateOf(safety.load()) }
+    var timeoutText by remember { mutableStateOf(profile.actionTimeoutMs.toString()) }
+    var attemptsText by remember { mutableStateOf(profile.maxAttempts.toString()) }
+    var recoveryText by remember { mutableStateOf(profile.recoveryMaxAttempts.toString()) }
+    var backoffText by remember { mutableStateOf(profile.recoveryBackoffBaseMs.toString()) }
+    var allowedList by remember { mutableStateOf(appsStore.load()) }
+    var newPackage by remember { mutableStateOf("") }
+    var appMessage by remember { mutableStateOf<String?>(null) }
+    var appOk by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -475,7 +468,6 @@ fun SettingsScreen() {
     ) {
         item { Spacer(Modifier.height(8.dp)) }
         item { Text("Settings", style = NazeTypography.pageTitle, color = NazeColors.textPrimary) }
-
         item {
             Column {
                 Text(
@@ -506,8 +498,7 @@ fun SettingsScreen() {
                             when {
                                 catalog.kind == null ->
                                     NazeStatusLabel(
-                                        label = if (selected) "Active" else "On
- device",
+                                        label = if (selected) "Active" else "On device",
                                         color = NazeColors.textMuted,
                                         icon = Icons.Rounded.History,
                                     )
@@ -517,8 +508,7 @@ fun SettingsScreen() {
                                         color = NazeColors.success,
                                         icon = Icons.Rounded.Key,
                                     )
-      
-                          else ->
+                                else ->
                                     NazeStatusLabel(
                                         label = "No key",
                                         color = NazeColors.warning,
@@ -531,7 +521,6 @@ fun SettingsScreen() {
                 }
             }
         }
-
         if (entry != null && entry.kind != null) {
             item {
                 NazeCard {
@@ -552,8 +541,7 @@ fun SettingsScreen() {
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 entry.keyHint!!,
-                                style =
- NazeTypography.caption,
+                                style = NazeTypography.caption,
                                 color = NazeColors.textMuted,
                             )
                         }
@@ -565,8 +553,7 @@ fun SettingsScreen() {
                                 Text(
                                     "API key",
                                     style = NazeTypography.body,
-           
-                         color = NazeColors.textMuted,
+                                    color = NazeColors.textMuted,
                                 )
                             },
                             singleLine = true,
@@ -591,8 +578,7 @@ fun SettingsScreen() {
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = NazeColors.surfaceElevated,
                                 unfocusedContainerColor = NazeColors.surfaceElevated,
-       
-                         focusedBorderColor = NazeColors.primary,
+                                focusedBorderColor = NazeColors.primary,
                                 unfocusedBorderColor = NazeColors.border,
                                 cursorColor = NazeColors.primary,
                                 focusedTextColor = NazeColors.textPrimary,
@@ -601,8 +587,7 @@ fun SettingsScreen() {
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(Modifier.height(8.dp))
-                   
-     NazeTextField(
+                        NazeTextField(
                             value = model,
                             onValueChange = { model = it },
                             placeholder = entry.defaultModel ?: "Model name",
@@ -666,8 +651,7 @@ fun SettingsScreen() {
                                 },
                             )
                         }
-                   
-     if (testMessage != null) {
+                        if (testMessage != null) {
                             Spacer(Modifier.height(8.dp))
                             NazeStatusLabel(
                                 label = testMessage!!,
@@ -677,8 +661,7 @@ fun SettingsScreen() {
                                 } else {
                                     Icons.Rounded.ErrorOutline
                                 },
-                     
-       )
+                            )
                         }
                         if (saved) {
                             Spacer(Modifier.height(8.dp))
@@ -692,7 +675,6 @@ fun SettingsScreen() {
                 }
             }
         }
-
         item {
             NazeCard {
                 Column {
@@ -716,6 +698,8 @@ fun SettingsScreen() {
                         },
                     )
                     Spacer(Modifier.height(6.dp))
+                    // Phase 22: configurable safety limits, stored on this
+                    // device and applied to every run.
                     Text(
                         "Safety limits",
                         style = NazeTypography.section,
@@ -812,6 +796,8 @@ fun SettingsScreen() {
                 }
             }
         }
+        // Phase 23: the allowed applications allowlist enforced by the
+        // runtime preflight before every run.
         item {
             NazeCard {
                 Column {
