@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.18.0] PHASE 18
+### Added
+- Real dashboard summary: the Agent tab now computes live stats from the
+  persisted run history (total runs, completed runs, and a success rate)
+  instead of hardcoded mock numbers, and lists the three most recent real
+  runs with an open action that jumps straight to the workflow detail.
+- History search: the History screen gains a search field that filters
+  persisted runs by instruction text, with a dedicated no matches empty
+  state when nothing fits.
+### Changed
+- MockData is fully removed from the dashboard; every screen now renders
+  from the real Room history.
+- app version 0.18.0.
+
 ## [0.17.0] PHASE 17
 ### Added
 - Plan timeline replay: the validated plan steps and their final states are

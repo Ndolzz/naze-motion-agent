@@ -20,6 +20,7 @@
 | 15 | More provider presets (Groq, OpenRouter, Ollama) | done |
 | 16 | History delete/clear + real accessibility status in Settings | done |
 | 17 | Plan timeline replay in detail + destructive action confirmation | done |
+| 18 | Real dashboard summary + history search | done |
 
 Phase 7 note: core/access is an Android library holding
 MotionAccessibilityService, AndroidAccessibilityDriver,
@@ -95,3 +96,10 @@ finished run through NazeActionTimeline, on top of the raw technical log.
 Destructive actions (Clear all, Delete run) require an explicit confirmation
 dialog. The history database moves to schema version 2 with a destructive
 migration, since run history is disposable local diagnostics.
+
+Phase 18 note: the dashboard Agent tab now renders a real summary computed
+from the persisted run history (total runs, completed runs, success rate)
+and lists the three most recent runs, each opening its workflow detail. The
+History screen gains a search field filtering runs by instruction text with
+a dedicated no matches state. MockData is fully removed from the dashboard;
+every screen renders from the real Room data.
