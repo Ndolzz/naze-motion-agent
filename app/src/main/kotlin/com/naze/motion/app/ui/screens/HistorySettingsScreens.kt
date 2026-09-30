@@ -50,6 +50,7 @@ import androidx.core.content.FileProvider
 import com.naze.motion.app.agent.AgentRunUi
 import com.naze.motion.app.agent.AllowedAppsStore
 import com.naze.motion.app.agent.ApiKeyStore
+import com.naze.motion.app.agent.ConfigPorter
 import com.naze.motion.app.agent.SafetySettingsStore
 import com.naze.motion.core.access.AccessibilityConnection
 import com.naze.motion.app.ui.components.NazeActionTimeline
@@ -68,6 +69,7 @@ import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
 /** Compact activity log over persisted runs, with a simple search filter. */
 @Composable
 fun HistoryScreen(
@@ -187,6 +189,7 @@ fun HistoryScreen(
         )
     }
 }
+
 /** Workflow detail from a persisted run: real plan timeline, stats, and log. */
 @Composable
 fun WorkflowDetailScreen(
@@ -336,6 +339,7 @@ fun WorkflowDetailScreen(
         )
     }
 }
+
 /**
  * Phase 20 export: writes the full run report (instruction, outcome,
  * stats, plan timeline, and technical log) to a text file in the app
@@ -393,6 +397,20 @@ private fun buildRunLogText(run: AgentRunUi): String {
     return builder.toString()
 }
 
+/**
+ * Phase 25 export: hands the configuration JSON to the system share
+ * sheet as plain text. The document contains API keys, so the user
+ * always picks the destination explicitly here.
+ */
+private fun shareConfig(context: Context, json: String) {
+    val share = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_SUBJECT, "Naze Motion configuration")
+        putExtra(Intent.EXTRA_TEXT, json)
+    }
+    context.startActivity(Intent.createChooser(share, "Share configuration"))
+}
+
 private fun formatDuration(ms: Long): String {
     val totalSeconds = ms / 1000
     val minutes = totalSeconds / 60
@@ -415,8 +433,9 @@ private fun DetailRow(label: String, value: String) {
         Text(value, style = NazeTypography.body.copy(color = NazeColors.textPrimary))
     }
 }
+
 /**
- * Settings (Phase 12 to 23): API keys are entered here, inside the app,
+ * Settings (Phase 12 to 25): API keys are entered here, inside the app,
  * and stay on this device. Keys are masked by default, stored in app
  * private storage, and used only for the selected provider. The Test
  * button verifies the current configuration with one real planning call
@@ -424,7 +443,9 @@ private fun DetailRow(label: String, value: String) {
  * service connection state, edits the configurable safety limits
  * (Phase 22), and can open the system accessibility settings. The
  * allowed applications card (Phase 23) edits the allowlist the runtime
- * enforces before every run.
+ * enforces before every run. The Backup card (Phase 25) exports the
+ * full configuration as one JSON document through the share sheet and
+ * imports a pasted document back through the same stores.
  */
 @Composable
 fun SettingsScreen() {
@@ -432,6 +453,7 @@ fun SettingsScreen() {
     val store = remember { ApiKeyStore(context.applicationContext) }
     val safety = remember { SafetySettingsStore(context.applicationContext) }
     val appsStore = remember { AllowedAppsStore(context.applicationContext) }
+    val porter = remember { ConfigPorter(context.applicationContext) }
     val scope = rememberCoroutineScope()
     var selectedId by remember { mutableStateOf(store.selectedId()) }
     var apiKey by remember(selectedId) { mutableStateOf(store.load(selectedId).apiKey) }
@@ -448,16 +470,29 @@ fun SettingsScreen() {
     var attemptsText by remember { mutableStateOf(profile.maxAttempts.toString()) }
     var recoveryText by remember { mutableStateOf(profile.recoveryMaxAttempts.toString()) }
     var backoffText by remember { mutableStateOf(profile.recoveryBackoffBaseMs.toString()) }
+    var safetyMessage by remember { mutableStateOf<String?>(null) }
+    var safetyOk by remember { mutableStateOf(false) }
     var allowedList by remember { mutableStateOf(appsStore.load()) }
     var newPackage by remember { mutableStateOf("") }
     var appMessage by remember { mutableStateOf<String?>(null) }
     var appOk by remember { mutableStateOf(false) }
+    var importJson by remember { mutableStateOf("") }
+    var backupMessage by remember { mutableStateOf<String?>(null) }
+    var backupOk by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         while (true) {
             serviceConnected = AccessibilityConnection.connected
             delay(1000)
         }
+    }
+
+    fun refreshSafetyTexts() {
+        profile = safety.load()
+        timeoutText = profile.actionTimeoutMs.toString()
+        attemptsText = profile.maxAttempts.toString()
+        recoveryText = profile.recoveryMaxAttempts.toString()
+        backoffText = profile.recoveryBackoffBaseMs.toString()
     }
 
     val entry = remember(selectedId) { ApiKeyStore.catalog.firstOrNull { it.id == selectedId } }
@@ -699,6 +734,20 @@ fun SettingsScreen() {
                         },
                     )
                     Spacer(Modifier.height(6.dp))
+                    TextButton(
+                        onClick = {
+                            val open = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                            open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            runCatching { context.startActivity(open) }
+                        },
+                    ) {
+                        Text(
+                            "Open system accessibility settings",
+                            color = NazeColors.primary,
+                            style = NazeTypography.caption,
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
                     // Phase 22: configurable safety limits, stored on this
                     // device and applied to every run.
                     Text(
@@ -746,59 +795,145 @@ fun SettingsScreen() {
                         NazeButton(
                             text = "Save limits",
                             onClick = {
-                                profile = safety.save(
-                                    actionTimeoutMs = timeoutText.toLongOrNull()
-                                        ?: profile.actionTimeoutMs,
-                                    maxAttempts = attemptsText.toIntOrNull()
-                                        ?: profile.maxAttempts,
-                                    recoveryMaxAttempts = recoveryText.toIntOrNull()
-                                        ?: profile.recoveryMaxAttempts,
-                                    recoveryBackoffBaseMs = backoffText.toLongOrNull()
-                                        ?: profile.recoveryBackoffBaseMs,
+                                val parsed = runCatching {
+                                    safety.save(
+                                        timeoutText.trim().toLong(),
+                                        attemptsText.trim().toInt(),
+                                        recoveryText.trim().toInt(),
+                                        backoffText.trim().toLong(),
+                                    )
+                                }
+                                parsed.fold(
+                                    {
+                                        refreshSafetyTexts()
+                                        safetyOk = true
+                                        safetyMessage = "Safety limits saved"
+                                    },
+                                    { e ->
+                                        safetyOk = false
+                                        safetyMessage = e.message ?: "invalid safety value"
+                                    },
                                 )
-                                timeoutText = profile.actionTimeoutMs.toString()
-                                attemptsText = profile.maxAttempts.toString()
-                                recoveryText = profile.recoveryMaxAttempts.toString()
-                                backoffText = profile.recoveryBackoffBaseMs.toString()
                             },
                             isPrimary = true,
                             leadingIcon = Icons.Rounded.Check,
                         )
                         NazeButton(
-                            text = "Reset defaults",
+                            text = "Reset limits",
                             onClick = {
                                 safety.reset()
-                                profile = safety.load()
-                                timeoutText = profile.actionTimeoutMs.toString()
-                                attemptsText = profile.maxAttempts.toString()
-                                recoveryText = profile.recoveryMaxAttempts.toString()
-                                backoffText = profile.recoveryBackoffBaseMs.toString()
+                                refreshSafetyTexts()
+                                safetyOk = true
+                                safetyMessage = "Safety limits reset to defaults"
+                            },
+                            leadingIcon = Icons.Rounded.Refresh,
+                        )
+                    }
+                    if (safetyMessage != null) {
+                        Spacer(Modifier.height(8.dp))
+                        NazeStatusLabel(
+                            label = safetyMessage!!,
+                            color = if (safetyOk) NazeColors.success else NazeColors.error,
+                            icon = if (safetyOk) {
+                                Icons.Rounded.Check
+                            } else {
+                                Icons.Rounded.ErrorOutline
                             },
                         )
                     }
-                    DetailRow("Verification mode", "Strict")
-                    Spacer(Modifier.height(8.dp))
-                    NazeButton(
-                        text = "Open system accessibility settings",
-                        onClick = {
-                            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                        },
-                        leadingIcon = Icons.Rounded.SettingsIcon,
-                    )
                 }
             }
         }
+        // Phase 25: backup card. Export writes the full configuration,
+        // API keys included, into one JSON document handed to the share
+        // sheet; import applies a pasted document through the same
+        // stores the rest of this screen uses.
         item {
             NazeCard {
                 Column {
-                    Text("Safety", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Require confirmation", "On")
-                    DetailRow("Emergency stop", "Always available")
+                    Text(
+                        "Backup",
+                        style = NazeTypography.section,
+                        color = NazeColors.textPrimary,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Export the whole on-device configuration (safety limits, " +
+                            "allowed applications, selected provider, and provider " +
+                            "keys) as one JSON document. The export includes your " +
+                            "API keys, so share it only with a destination you trust.",
+                        style = NazeTypography.caption,
+                        color = NazeColors.textMuted,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    NazeButton(
+                        text = "Export config",
+                        onClick = { runCatching { shareConfig(context, porter.export()) } },
+                        leadingIcon = Icons.Rounded.Share,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "Paste an exported configuration below and press Import " +
+                            "to apply it on this device.",
+                        style = NazeTypography.caption,
+                        color = NazeColors.textMuted,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    NazeTextField(
+                        value = importJson,
+                        onValueChange = { importJson = it },
+                        placeholder = "Paste configuration JSON here",
+                        minLines = 3,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        NazeButton(
+                            text = "Import",
+                            onClick = {
+                                val result = porter.import(importJson)
+                                backupOk = result.isSuccess
+                                backupMessage = result.fold(
+                                    {
+                                        selectedId = store.selectedId()
+                                        apiKey = store.load(selectedId).apiKey
+                                        model = store.load(selectedId).model
+                                        baseUrl = store.load(selectedId).baseUrl
+                                        savedTick = savedTick + 1
+                                        refreshSafetyTexts()
+                                        allowedList = appsStore.load()
+                                        importJson = ""
+                                        "Configuration applied on this device"
+                                    },
+                                    { e -> e.message ?: "import failed" },
+                                )
+                            },
+                            enabled = importJson.isNotBlank(),
+                            isPrimary = true,
+                            leadingIcon = Icons.Rounded.Check,
+                        )
+                        NazeButton(
+                            text = "Clear",
+                            onClick = {
+                                importJson = ""
+                                backupMessage = null
+                            },
+                        )
+                    }
+                    if (backupMessage != null) {
+                        Spacer(Modifier.height(8.dp))
+                        NazeStatusLabel(
+                            label = backupMessage!!,
+                            color = if (backupOk) NazeColors.success else NazeColors.error,
+                            icon = if (backupOk) {
+                                Icons.Rounded.Check
+                            } else {
+                                Icons.Rounded.ErrorOutline
+                            },
+                        )
+                    }
                 }
             }
         }
-        // Phase 23: the allowed applications allowlist enforced by the
-        // runtime preflight before every run.
         item {
             NazeCard {
                 Column {
@@ -809,39 +944,40 @@ fun SettingsScreen() {
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "The agent only opens apps on this list. Adding " +
-                            "an app here does not create an adapter for it; " +
-                            "today the agent drives Alight Motion only.",
+                        "The agent can open and drive only the packages on this " +
+                            "list. Every run is refused until at least one " +
+                            "application is allowed.",
                         style = NazeTypography.caption,
                         color = NazeColors.textMuted,
                     )
                     Spacer(Modifier.height(8.dp))
                     if (allowedList.isEmpty()) {
                         Text(
-                            "No allowed applications. Every run will be refused " +
-                                "until at least one app is allowed.",
-                            style = NazeTypography.caption,
-                            color = NazeColors.error,
+                            "No applications allowed.",
+                            style = NazeTypography.body,
+                            color = NazeColors.warning,
                         )
                     } else {
-                        allowedList.forEach { pkg ->
+                        allowedList.forEach { packageName ->
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Text(
-                                    pkg,
+                                    packageName,
                                     style = NazeTypography.body.copy(
                                         color = NazeColors.textPrimary,
                                     ),
                                 )
                                 TextButton(
                                     onClick = {
-                                        appsStore.remove(pkg)
+                                        appsStore.remove(packageName)
                                         allowedList = appsStore.load()
                                     },
-                                ) { Text("Remove", color = NazeColors.error) }
+                                ) {
+                                    Text("Remove", color = NazeColors.error)
+                                }
                             }
                         }
                     }
@@ -849,8 +985,25 @@ fun SettingsScreen() {
                     NazeTextField(
                         value = newPackage,
                         onValueChange = { newPackage = it },
-                        placeholder = "Package name, e.g. org.example.app",
+                        placeholder = "com.example.app",
                         minLines = 1,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    NazeButton(
+                        text = "Add",
+                        onClick = {
+                            val ok = appsStore.add(newPackage.trim())
+                            appOk = ok
+                            appMessage = if (ok) {
+                                allowedList = appsStore.load()
+                                newPackage = ""
+                                "Package added to the allowed list"
+                            } else {
+                                "Invalid or duplicate package name"
+                            }
+                        },
+                        enabled = newPackage.isNotBlank(),
+                        leadingIcon = Icons.Rounded.Check,
                     )
                     if (appMessage != null) {
                         Spacer(Modifier.height(8.dp))
@@ -864,35 +1017,30 @@ fun SettingsScreen() {
                             },
                         )
                     }
-                    Spacer(Modifier.height(8.dp))
-                    NazeButton(
-                        text = "Allow app",
-                        onClick = {
-                            val added = appsStore.add(newPackage)
-                            appOk = added
-                            appMessage = if (added) {
-                                "Added to the allowed list"
-                            } else {
-                                "Not a valid package name"
-                            }
-                            if (added) {
-                                allowedList = appsStore.load()
-                                newPackage = ""
-                            }
-                        },
-                        enabled = newPackage.isNotBlank(),
-                        isPrimary = true,
-                        leadingIcon = Icons.Rounded.Check,
-                    )
                 }
             }
         }
         item {
             NazeCard {
                 Column {
-                    Text("About", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Version", "0.23.0")
-                    DetailRow("Open source licenses", "View")
+                    Text(
+                        "About",
+                        style = NazeTypography.section,
+                        color = NazeColors.textPrimary,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    DetailRow("Application", "Naze Motion")
+                    DetailRow("Version", "0.25.0")
+                    DetailRow("Target application", "Alight Motion")
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Everything the agent does runs on this device. Keys, " +
+                            "safety limits, allowed applications, and run history " +
+                            "stay local, and they leave the device only when you " +
+                            "export or share them yourself.",
+                        style = NazeTypography.caption,
+                        color = NazeColors.textMuted,
+                    )
                 }
             }
         }
