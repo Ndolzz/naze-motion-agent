@@ -4,7 +4,7 @@ import android.content.Context
 import com.naze.motion.core.ai.AIProvider
 import com.naze.motion.core.ai.AiProviderConfig
 import com.naze.motion.core.ai.AiProviderKind
-import com.naze.motion.core.ai.LocalTemplateProvider
+import com.naze.motion.core.agent.LocalTemplateProvider
 import com.naze.motion.core.ai.NetworkAiProvider
 
 /**
@@ -51,7 +51,8 @@ class ApiKeyStore(context: Context) {
     fun hasKey(providerId: String): Boolean = load(providerId).apiKey.isNotBlank()
 
     /**
-     * Builds the active AIProvider from the stored keys. Falls back to the
+     * Builds the active AIProvider from
+ the stored keys. Falls back to the
      * deterministic LocalTemplateProvider whenever the selected provider
      * has no complete configuration, so a run never fails just because a
      * key is missing.
@@ -98,7 +99,8 @@ class ApiKeyStore(context: Context) {
             ),
             CatalogEntry(
                 "gemini", "Google Gemini", AiProviderKind.GEMINI,
-                "https://generativelanguage.googleapis.com", "gemini-1.5-flash",
+                "http
+s://generativelanguage.googleapis.com", "gemini-1.5-flash",
             ),
             CatalogEntry(
                 "custom", "Custom (OpenAI compatible)", AiProviderKind.OPENAI_COMPATIBLE,
