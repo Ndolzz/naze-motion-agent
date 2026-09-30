@@ -16,9 +16,11 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,12 +40,13 @@ import com.naze.motion.app.ui.theme.NazeColors
 import com.naze.motion.app.ui.theme.NazeTypography
 
 /**
- * Agent dashboard (Phase 18 to 19). Input is the focal point, not a wall of
+ * Agent dashboard (Phase 18 to 20). Input is the focal point, not a wall of
  * cards. The summary and the recent workflows list render real persisted
  * runs from the local history database; MockData is no longer used here.
  * When the preflight check refuses a run (service off or target app
  * missing), the reason is shown as a dismissible banner under the RUN
- * button instead of starting a doomed execution.
+ * button instead of starting a doomed execution. Since Phase 20, RUN asks
+ * for an explicit confirmation before the agent takes over the device.
  */
 @Composable
 fun AgentDashboardScreen(
@@ -55,6 +58,7 @@ fun AgentDashboardScreen(
     onDismissPreflight: () -> Unit = {},
 ) {
     var instruction by remember { mutableStateOf("") }
+    var confirmRun by remember { mutableStateOf(false) }
 
     val totalRuns = runs.size
     val completedRuns = runs.count { it.outcome == "Completed" }
@@ -93,7 +97,7 @@ fun AgentDashboardScreen(
                     )
                     NazeButton(
                         text = "RUN",
-                        onClick = { if (instruction.isNotBlank()) onStartTask(instruction) },
+                        onClick = { if (instruction.isNotBlank()) confirmRun = true },
                         enabled = instruction.isNotBlank(),
                         isPrimary = true,
                         leadingIcon = Icons.Rounded.PlayArrow,
@@ -243,5 +247,32 @@ fun AgentDashboardScreen(
             }
         }
         item { Spacer(Modifier.height(32.dp)) }
+    }
+
+    // Phase 20: starting a run takes over the device, so it always
+    // requires an explicit confirmation first.
+    if (confirmRun) {
+        AlertDialog(
+            onDismissRequest = { confirmRun = false },
+            title = { Text("Start this run?") },
+            text = {
+                Text(
+                    "Naze will open Alight Motion and perform this instruction " +
+                        "automatically. Keep the device still and press Emergency " +
+                        "Stop at any time to cancel.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmRun = false
+                        if (instruction.isNotBlank()) onStartTask(instruction)
+                    },
+                ) { Text("Start run", color = NazeColors.primary) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRun = false }) { Text("Cancel") }
+            },
+        )
     }
 }

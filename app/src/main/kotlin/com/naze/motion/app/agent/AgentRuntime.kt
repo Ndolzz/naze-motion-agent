@@ -1,6 +1,7 @@
 package com.naze.motion.app.agent
 
 import android.content.Context
+import android.content.Intent
 import com.naze.motion.app.ui.components.TimelineItemState
 import com.naze.motion.app.ui.model.AgentUiState
 import com.naze.motion.core.access.AccessibilityConnection
@@ -23,7 +24,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * AgentRuntime (Phase 11 to 19): the real wiring between the UI and the
+ * AgentRuntime (Phase 11 to 20): the real wiring between the UI and the
  * core pipeline. The dashboard starts a real run through MotionAgent over
  * AndroidAccessibilityDriver, AccessibilityTargetResolver, and
  * AlightMotionAdapter. The planner provider is built from ApiKeyStore.
@@ -32,9 +33,8 @@ import kotlinx.coroutines.launch
  * history can be deleted (Phase 16). The execution console renders a live
  * timeline built from the validated plan and updated from the structured
  * engine log (Phase 14). Phase 19 adds a preflight check before every
- * run: the accessibility service must be connected and the target app
- * must be installed, otherwise the run is refused with a clear reason
- * instead of failing halfway through execution.
+ * run (service connected, target installed), and Phase 20 auto launches
+ * the target app so the run always starts on a ready screen.
  */
 class AgentRuntime(context: Context) {
 
@@ -75,6 +75,14 @@ class AgentRuntime(context: Context) {
             return
         }
         preflightError.value = null
+        // Phase 20: bring the target app to the front so the run starts
+        // on a ready screen. Launching an already open app simply focuses
+        // it, so this is always safe to call after preflight.
+        val launch = appContext.packageManager.getLaunchIntentForPackage(TARGET_PACKAGE)
+        if (launch != null) {
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { appContext.startActivity(launch) }
+        }
         val cancellationToken = AgentCancellationToken()
         token = cancellationToken
         executionActive.value = true
