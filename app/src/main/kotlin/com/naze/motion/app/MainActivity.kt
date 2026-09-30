@@ -78,6 +78,9 @@ fun NazeMotionApp() {
     val logLines by runtime.logLines.collectAsState()
     val history by runtime.history.collectAsState()
     val preflightError by runtime.preflightError.collectAsState()
+    // Phase 25: reconnect offer kept by the runtime after a mid-run
+    // accessibility disconnect that later reconnected.
+    val reconnectOffer by runtime.reconnectOffer.collectAsState()
 
     DisposableEffect(Unit) {
         onDispose { runtime.shutdown() }
@@ -133,6 +136,11 @@ fun NazeMotionApp() {
                     preflightError = preflightError,
                     onDismissPreflight = { runtime.dismissPreflight() },
                     serviceConnected = statusConnected,
+                    // Phase 25: one tap re-run of the interrupted
+                    // instruction after a reconnect.
+                    reconnectOffer = reconnectOffer,
+                    onRerun = { runtime.rerunLast() },
+                    onDismissReconnect = { runtime.dismissReconnectOffer() },
                 )
                 destination == Destination.HISTORY || destination == Destination.WORKFLOWS ->
                     HistoryScreen(

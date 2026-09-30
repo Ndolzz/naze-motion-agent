@@ -3,19 +3,20 @@ package com.naze.motion.core.adapter
 import kotlin.reflect.KClass
 
 /**
- * TargetAdapterRegistry (Phase 24): the multi-adapter foundation. Every
- * target application the agent knows how to drive is registered here with
- * its package name, a human readable display name, and the adapter class
- * that implements it. The engine, the runtime, and the UI ask the registry
- * instead of hardcoding package names, so adding a second target
- * application later means registering metadata plus one adapter class
- * here, and nothing else.
+ * TargetAdapterRegistry (Phase 24, second target in Phase 25): the
+ * multi-adapter foundation. Every target application the agent knows how
+ * to drive is registered here with its package name, a human readable
+ * display name, and the adapter class that implements it. The engine,
+ * the runtime, and the UI ask the registry instead of hardcoding package
+ * names, so adding a target application means registering metadata plus
+ * one adapter class here, and nothing else.
  *
  * The package string must match the adapter's packageName property.
  */
 object TargetAdapterRegistry {
 
     const val ALIGHT_MOTION_PACKAGE = "com.alightmotion.motion"
+    const val CAPCUT_PACKAGE = "com.lemon.lvoverseas"
 
     data class TargetApp(
         val displayName: String,
@@ -25,6 +26,7 @@ object TargetAdapterRegistry {
     /** All target applications this build knows how to drive. */
     val knownTargets: List<TargetApp> = listOf(
         TargetApp("Alight Motion", ALIGHT_MOTION_PACKAGE),
+        TargetApp("CapCut", CAPCUT_PACKAGE),
     )
 
     fun isKnown(packageName: String): Boolean =
@@ -45,6 +47,7 @@ object TargetAdapterRegistry {
     fun adapterClassFor(packageName: String): KClass<out TargetApplicationAdapter>? =
         when (packageName) {
             ALIGHT_MOTION_PACKAGE -> AlightMotionAdapter::class
+            CAPCUT_PACKAGE -> CapCutAdapter::class
             else -> null
         }
 }

@@ -9,15 +9,18 @@ import kotlin.test.assertTrue
 class TargetAdapterRegistryTest {
 
     @Test
-    fun knownTargetsContainAlightMotion() {
-        val pkg = TargetAdapterRegistry.ALIGHT_MOTION_PACKAGE
-        assertTrue(TargetAdapterRegistry.isKnown(pkg))
-        assertEquals("Alight Motion", TargetAdapterRegistry.displayNameFor(pkg))
-        assertEquals(1, TargetAdapterRegistry.knownTargets.size)
+    fun knownTargetsContainAlightMotionAndCapCut() {
+        val alight = TargetAdapterRegistry.ALIGHT_MOTION_PACKAGE
+        val capcut = TargetAdapterRegistry.CAPCUT_PACKAGE
+        assertTrue(TargetAdapterRegistry.isKnown(alight))
+        assertTrue(TargetAdapterRegistry.isKnown(capcut))
+        assertEquals("Alight Motion", TargetAdapterRegistry.displayNameFor(alight))
+        assertEquals("CapCut", TargetAdapterRegistry.displayNameFor(capcut))
+        assertEquals(2, TargetAdapterRegistry.knownTargets.size)
     }
 
     @Test
-    fun unknownPackageIsNotKnownAndFallsBackToItself() {
+    fun unknownPackageIsNotKnownAndFallsBackToItelf() {
         assertFalse(TargetAdapterRegistry.isKnown("com.example.unknown"))
         assertEquals(
             "com.example.unknown",
@@ -27,11 +30,16 @@ class TargetAdapterRegistryTest {
 
     @Test
     fun adapterClassResolvesForKnownTargetsOnly() {
-        val known = TargetAdapterRegistry.adapterClassFor(
+        val alight = TargetAdapterRegistry.adapterClassFor(
             TargetAdapterRegistry.ALIGHT_MOTION_PACKAGE,
         )
-        assertTrue(known != null)
-        assertTrue(known!!.qualifiedName?.endsWith("AlightMotionAdapter") == true)
+        val capcut = TargetAdapterRegistry.adapterClassFor(
+            TargetAdapterRegistry.CAPCUT_PACKAGE,
+        )
+        assertTrue(alight != null)
+        assertTrue(alight!!.qualifiedName?.endsWith("AlightMotionAdapter") == true)
+        assertTrue(capcut != null)
+        assertTrue(capcut!!.qualifiedName?.endsWith("CapCutAdapter") == true)
         assertNull(TargetAdapterRegistry.adapterClassFor("com.example.unknown"))
     }
 }

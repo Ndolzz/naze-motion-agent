@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.25.0] PHASE 25
+### Added
+- Backup card in Settings: the configuration export and import landed in Phase 24 now have their UI. Export config hands the full on-device configuration (safety limits, allowed applications, selected provider, and provider keys) as one JSON document to the system share sheet, with an explicit warning that the document contains API keys. Import applies a pasted document through the same stores the Settings screens use, refreshes every visible editor afterwards, and reports the result inline.
+- Reconnect banner on the dashboard: when the accessibility link dropped during the last run and has reconnected (the Phase 24 reconnect offer), the dashboard shows a warning banner with the interrupted instruction, a one tap Run again button wired to the runtime, and a dismiss action.
+- Second target adapter: a new CapCutAdapter in core/adapter, structurally identical to AlightMotionAdapter, with the package name and a best-effort vocabulary of common CapCut screen elements. The TargetAdapterRegistry now registers two target applications and maps both packages to their adapter classes, proving the Phase 24 foundation: one new adapter plus one registry entry, nothing else changed. The runtime still drives Alight Motion only; selecting a target per run is a later phase.
+- 8 JVM tests for the registry and the new adapter (both targets known, unknown fallback, both adapter classes resolved, CapCut open and vocabulary).
+### Changed
+- app version 0.25.0.
+
+
 ## [0.24.0] PHASE 24
 ### Added
 - Reconnect detection and re-run offer: while a run executes, the runtime now watches the accessibility connection. When the link drops mid-run and the service later reconnects, the interrupted instruction is kept as a reconnect offer and the dashboard banner says the run can be retried; rerunLast restarts the same instruction with one tap and dismissReconnectOffer drops the offer.
@@ -14,7 +24,8 @@
 ### Added
 - Allowed applications allowlist: a new AllowedApps model in core/domain holds the list of applications the agent may open and drive, with structural package name validation, deduplication, and a bounded list size. The default list contains Alight Motion only.
 - Preflight enforcement: before every run, the runtime checks that the target application is on the allowed list and refuses the run with a clear reason when it is not, on top of the existing service and installed checks.
-- Allowed applications editor in Settings: a dedicated card lists the allowed packages with a Remove action each, plus an Add field that validates the entered package name before storing it; an empty list is allowed and every run is refused until at least one app is allowed again. The values live on this device only.
+- Allowed applications editor in Settings: a dedicated card lists the allowed packages 
+with a Remove action each, plus an Add field that validates the entered package name before storing it; an empty list is allowed and every run is refused until at least one app is allowed again. The values live on this device only.
 - 7 JVM tests for the allowlist model (validation, dedupe, bounds, default, removal).
 ### Changed
 - app version 0.23.0.
@@ -31,7 +42,8 @@
 ## [0.21.0] PHASE 21
 ### Added
 - Run again from history: the workflow detail screen gains a Run again button that immediately starts a new agent run with the same stored instruction, going through the exact same flow as a fresh run (preflight check, confirmation dialog, and automatic launch of the target app).
-- Getting started guide: while MotionAccessibilityService is not connected, the dashboard shows a numbered three step guide (enable the accessibility service, open Alight Motion, run the first instruction) so a new user knows exactly what to do before the first run; the guide disappears as soon as the service connects.
+- Getting started guide: while MotionAccessibilityService is not connected, the dashboard shows a numbered three step guide (enable the accessibility service, open Alight Motion, run the first instruction) so a new user knows exactly what to do before the first run; the guide disapp
+ears as soon as the service connects.
 ### Changed
 - app version 0.21.0.
 
@@ -133,8 +145,8 @@ History screens.
 ### Added
 - In app API key management: keys are entered on the Settings screen inside
 the app and stored in app private storage on the device only. They are never baked into the build and never logged.
-- Multi provider support: OpenAI, Anthropic, Google Gemini, any custom
-OpenAI compatible endpoint, and the on device Local templates can all be configured with a key, model, and optional base URL at the same time; one is selected as active.
+- Multi provider su
+pport: OpenAI, Anthropic, Google Gemini, any customOpenAI compatible endpoint, and the on device Local templates can all be configured with a key, model, and optional base URL at the same time; one is selected as active.
 - NetworkAiProvider in core/ai: an AIProvider implementation for
 OPENAI_COMPATIBLE, ANTHROPIC, and GEMINI chat APIs with a system prompt pinned to the planner JSON schema, code fence stripping, and typed failures for non 2xx responses.
 - ApiKeyStore in the app: per provider key/model/base URL storage, clear,
@@ -161,8 +173,8 @@ AIProvider interface; output passes the full planning validation pipeline.
 - AgentRuntime app wiring: real accessibility driver, target resolver,
 AlightMotionAdapter, planner, and engine behind the dashboard and execution console. The structured engine log streams liv e into the console.
 ### Changed
-- The dashboard RUN button now starts a real agent run instead of flipping
-mock state; the status bar reflects the real accessibility connection.
+- The dashboard RUN button now starts a real agent 
+run instead of flippingmock state; the status bar reflects the real accessibility connection.
 - STOP AGENT and the execution close button cancel the run through the
 cancellation token (Emergency Stop, NMA-SEC-008/009).
 - settings.gradle.kts now includes :core:adapter, :core:ai, and :core:agent,
@@ -199,8 +211,8 @@ honest failure reasons when a rule cannot be proven.
 - ExecutionSummary outcome model: COMPLETED, FAILED, CANCELLED.
 - FakeAutomationDriver and FakeTargetResolver deterministic dou
 bles with scripted failure counters.
-- Engine unit tests: happy path, machine alignment, rejection, disconnect,
-cancellation, retry, recovery, recovery exhaustion, timeout, log coverage.
+- Engine unit tests: happy path, machine alignment, rejection, disconn
+ect,cancellation, retry, recovery, recovery exhaustion, timeout, log coverage.
 ### Changed
 - State table amendment: VERIFYING may transition to COMPLETED so the engine
 can finish a plan in a terminal state.

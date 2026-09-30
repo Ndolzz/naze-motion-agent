@@ -16,6 +16,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,7 +41,7 @@ import com.naze.motion.app.ui.theme.NazeColors
 import com.naze.motion.app.ui.theme.NazeTypography
 
 /**
- * Agent dashboard (Phase 18 to 21). Input is the focal point, not a wall of
+ * Agent dashboard (Phase 18 to 25). Input is the focal point, not a wall of
  * cards. The summary and the recent workflows list render real persisted
  * runs from the local history database; MockData is no longer used here.
  * When the preflight check refuses a run (service off or target app
@@ -48,7 +49,10 @@ import com.naze.motion.app.ui.theme.NazeTypography
  * button instead of starting a doomed execution. Since Phase 20, RUN asks
  * for an explicit confirmation before the agent takes over the device.
  * Since Phase 21, a getting started guide is shown while the
- * accessibility service is not connected.
+ * accessibility service is not connected. Since Phase 25, a reconnect
+ * banner appears when the accessibility link dropped during the last run
+ * and has reconnected: it shows the interrupted instruction and offers a
+ * one tap re-run.
  */
 @Composable
 fun AgentDashboardScreen(
@@ -59,6 +63,9 @@ fun AgentDashboardScreen(
     preflightError: String? = null,
     onDismissPreflight: () -> Unit = {},
     serviceConnected: Boolean = true,
+    reconnectOffer: String? = null,
+    onRerun: (() -> Unit)? = null,
+    onDismissReconnect: () -> Unit = {},
 ) {
     var instruction by remember { mutableStateOf("") }
     var confirmRun by remember { mutableStateOf(false) }
@@ -130,6 +137,59 @@ fun AgentDashboardScreen(
                                     Icons.Rounded.Close,
                                     contentDescription = "Dismiss",
                                     tint = NazeColors.textMuted,
+                                )
+                            }
+                        }
+                    }
+                }
+                // Phase 25: the accessibility link dropped during the last
+                // run and has reconnected, so the interrupted instruction
+                // can be retried with one tap.
+                if (reconnectOffer != null) {
+                    Spacer(Modifier.height(8.dp))
+                    NazeCard(padding = 12.dp) {
+                        Column {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Refresh,
+                                    contentDescription = null,
+                                    tint = NazeColors.warning,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "The accessibility service disconnected during " +
+                                        "the last run and has reconnected. The " +
+                                        "instruction can be retried.",
+                                    style = NazeTypography.caption,
+                                    color = NazeColors.warning,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                IconButton(onClick = onDismissReconnect) {
+                                    Icon(
+                                        Icons.Rounded.Close,
+                                        contentDescription = "Dismiss",
+                                        tint = NazeColors.textMuted,
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                reconnectOffer,
+                                style = NazeTypography.body.copy(
+                                    color = NazeColors.textPrimary,
+                                ),
+                                maxLines = 2,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            if (onRerun != null) {
+                                NazeButton(
+                                    text = "Run again",
+                                    onClick = onRerun,
+                                    isPrimary = true,
+                                    leadingIcon = Icons.Rounded.Refresh,
                                 )
                             }
                         }
