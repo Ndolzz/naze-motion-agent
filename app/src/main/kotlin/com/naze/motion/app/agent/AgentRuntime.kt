@@ -34,12 +34,15 @@ import kotlinx.coroutines.launch
  * timeline built from the validated plan and updated from the structured
  * engine log (Phase 14). Phase 19 adds a preflight check before every
  * run (service connected, target installed), and Phase 20 auto launches
- * the target app so the run always starts on a ready screen.
+ * the target app so the run always starts on a ready screen. Phase 22 applies the
+ * configurable safety profile (action timeout cap, retry cap, recovery
+ * bounds) from Settings to every run.
  */
 class AgentRuntime(context: Context) {
 
     private val appContext = context.applicationContext
     private val store = ApiKeyStore(context)
+    private val safety = SafetySettingsStore(context)
     private val dao = HistoryDatabase.get(context).agentRunDao()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var token: AgentCancellationToken? = null
@@ -97,7 +100,9 @@ class AgentRuntime(context: Context) {
             val driver = AndroidAccessibilityDriver()
             val resolver = AccessibilityTargetResolver(driver)
             val adapter = AlightMotionAdapter(driver)
-            val engine = ExecutionEngine()
+            // Phase 22: the configurable safety profile caps action
+            // timeout and retries and drives bounded recovery.
+            val engine = ExecutionEngine(profile = safety.load())
             var stepIndex = 0
             engine.log().onEvent { event ->
                 logLines.value = logLines.value + (formatTime(event.timestampMs) to event.type)
@@ -182,6 +187,7 @@ class AgentRuntime(context: Context) {
         val detail = when {
             target?.normalizedText != null -> " " + target.normalizedText
             target?.text != null -> " " + target.text
+
             target?.contentDescription != null -> " " + target.contentDescription
             action.parameters.containsKey("packageName") ->
                 " " + action.parameters["packageName"]

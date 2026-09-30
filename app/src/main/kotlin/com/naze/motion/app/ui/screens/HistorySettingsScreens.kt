@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.naze.motion.app.agent.AgentRunUi
 import com.naze.motion.app.agent.ApiKeyStore
+import com.naze.motion.app.agent.SafetySettingsStore
 import com.naze.motion.core.access.AccessibilityConnection
 import com.naze.motion.app.ui.components.NazeActionTimeline
 import com.naze.motion.app.ui.components.NazeButton
@@ -142,7 +143,8 @@ fun HistoryScreen(
                             style = NazeTypography.body.copy(color = NazeColors.textPrimary),
                             maxLines = 1,
                         )
-                        NazeStatusLabel(
+   
+                     NazeStatusLabel(
                             label = run.outcome + " " + formatEnded(run.endedAtMs),
                             color = if (run.outcome == "Completed") {
                                 NazeColors.success
@@ -418,7 +420,7 @@ private fun DetailRow(label: String, value: String) {
 }
 
 /**
- * Settings (Phase 12 to 21): API keys are entered here, inside the app,
+ * Settings (Phase 12 to 22): API keys are entered here, inside the app,
  * and stay on this device. Keys are masked by default, stored in app
  * private storage, and used only for the selected provider. The Test
  * button verifies the current configuration with one real planning call
@@ -430,6 +432,12 @@ private fun DetailRow(label: String, value: String) {
 fun SettingsScreen() {
     val context = LocalContext.current
     val store = remember { ApiKeyStore(context.applicationContext) }
+    val safety = remember { SafetySettingsStore(context.applicationContext) }
+    var profile by remember { mutableStateOf(safety.load()) }
+    var timeoutText by remember { mutableStateOf(profile.actionTimeoutMs.toString()) }
+    var attemptsText by remember { mutableStateOf(profile.maxAttempts.toString()) }
+    var recoveryText by remember { mutableStateOf(profile.recoveryMaxAttempts.toString()) }
+    var backoffText by remember { mutableStateOf(profile.recoveryBackoffBaseMs.toString()) }
     val scope = rememberCoroutineScope()
     var selectedId by remember { mutableStateOf(store.selectedId()) }
     var apiKey by remember(selectedId) { mutableStateOf(store.load(selectedId).apiKey) }
@@ -499,7 +507,8 @@ fun SettingsScreen() {
                                         color = NazeColors.success,
                                         icon = Icons.Rounded.Key,
                                     )
-                                else ->
+      
+                          else ->
                                     NazeStatusLabel(
                                         label = "No key",
                                         color = NazeColors.warning,
@@ -545,7 +554,8 @@ fun SettingsScreen() {
                                 Text(
                                     "API key",
                                     style = NazeTypography.body,
-                                    color = NazeColors.textMuted,
+           
+                         color = NazeColors.textMuted,
                                 )
                             },
                             singleLine = true,
@@ -579,7 +589,8 @@ fun SettingsScreen() {
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(Modifier.height(8.dp))
-                        NazeTextField(
+                   
+     NazeTextField(
                             value = model,
                             onValueChange = { model = it },
                             placeholder = entry.defaultModel ?: "Model name",
@@ -653,7 +664,8 @@ fun SettingsScreen() {
                                 } else {
                                     Icons.Rounded.ErrorOutline
                                 },
-                            )
+                     
+       )
                         }
                         if (saved) {
                             Spacer(Modifier.height(8.dp))
@@ -691,8 +703,81 @@ fun SettingsScreen() {
                         },
                     )
                     Spacer(Modifier.height(6.dp))
-                    DetailRow("Action timeout", "5000 ms")
-                    DetailRow("Retry limit", "2")
+                    Text(
+                        "Safety limits",
+                        style = NazeTypography.section,
+                        color = NazeColors.textPrimary,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Upper bounds for the next run: no action can wait " +
+                            "longer or retry more than these limits.",
+                        style = NazeTypography.caption,
+                        color = NazeColors.textMuted,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    NazeTextField(
+                        value = timeoutText,
+                        onValueChange = { timeoutText = it },
+                        placeholder = "Action timeout in ms",
+                        minLines = 1,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    NazeTextField(
+                        value = attemptsText,
+                        onValueChange = { attemptsText = it },
+                        placeholder = "Retry limit per action",
+                        minLines = 1,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    NazeTextField(
+                        value = recoveryText,
+                        onValueChange = { recoveryText = it },
+                        placeholder = "Recovery attempts",
+                        minLines = 1,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    NazeTextField(
+                        value = backoffText,
+                        onValueChange = { backoffText = it },
+                        placeholder = "Recovery backoff base in ms",
+                        minLines = 1,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        NazeButton(
+                            text = "Save limits",
+                            onClick = {
+                                profile = safety.save(
+                                    actionTimeoutMs = timeoutText.toLongOrNull()
+                                        ?: profile.actionTimeoutMs,
+                                    maxAttempts = attemptsText.toIntOrNull()
+                                        ?: profile.maxAttempts,
+                                    recoveryMaxAttempts = recoveryText.toIntOrNull()
+                                        ?: profile.recoveryMaxAttempts,
+                                    recoveryBackoffBaseMs = backoffText.toLongOrNull()
+                                        ?: profile.recoveryBackoffBaseMs,
+                                )
+                                timeoutText = profile.actionTimeoutMs.toString()
+                                attemptsText = profile.maxAttempts.toString()
+                                recoveryText = profile.recoveryMaxAttempts.toString()
+                                backoffText = profile.recoveryBackoffBaseMs.toString()
+                            },
+                            isPrimary = true,
+                            leadingIcon = Icons.Rounded.Check,
+                        )
+                        NazeButton(
+                            text = "Reset defaults",
+                            onClick = {
+                                safety.reset()
+                                profile = safety.load()
+                                timeoutText = profile.actionTimeoutMs.toString()
+                                attemptsText = profile.maxAttempts.toString()
+                                recoveryText = profile.recoveryMaxAttempts.toString()
+                                backoffText = profile.recoveryBackoffBaseMs.toString()
+                            },
+                        )
+                    }
                     DetailRow("Verification mode", "Strict")
                     Spacer(Modifier.height(8.dp))
                     NazeButton(
@@ -702,7 +787,8 @@ fun SettingsScreen() {
                         },
                         leadingIcon = Icons.Rounded.SettingsIcon,
                     )
-                }
+        
+        }
             }
         }
         item {
@@ -719,7 +805,7 @@ fun SettingsScreen() {
             NazeCard {
                 Column {
                     Text("About", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Version", "0.21.0")
+                    DetailRow("Version", "0.22.0")
                     DetailRow("Open source licenses", "View")
                 }
             }
