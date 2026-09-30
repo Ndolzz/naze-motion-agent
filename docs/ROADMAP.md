@@ -19,6 +19,7 @@
 | 14 | Live execution timeline + API key test | done |
 | 15 | More provider presets (Groq, OpenRouter, Ollama) | done |
 | 16 | History delete/clear + real accessibility status in Settings | done |
+| 17 | Plan timeline replay in detail + destructive action confirmation | done |
 
 Phase 7 note: core/access is an Android library holding
 MotionAccessibilityService, AndroidAccessibilityDriver,
@@ -40,8 +41,7 @@ Engine wiring into the screens arrives with Phase 11.
 Phase 11 note: core/agent adds MotionAgent, the end to end orchestrator that
 chains planner, target adapter, and execution engine into one typed run,
 with JVM end to end tests over the fake doubles. The app replaces its mock
-state with a real Age
-ntRuntime over AndroidAccessibilityDriver,
+state with a real AgentRuntime over AndroidAccessibilityDriver,
 AccessibilityTargetResolver, AlightMotionAdapter, and the AiPlanner backed by
 LocalTemplateProvider, a deterministic on device template provider behind the
 same provider interface. The dashboard runs real instructions, the status bar
@@ -73,8 +73,7 @@ Settings screen gains a Test button that verifies the current key, model, and
 base URL with one real planning call before saving; the result message is
 shown inline. MockData is no longer used by the execution console.
 
-Phase 15 note: the provider catalog in Settings grows to 
-cover Groq,
+Phase 15 note: the provider catalog in Settings grows to cover Groq,
 OpenRouter, and self hosted Ollama on top of OpenAI, Anthropic, Google Gemini,
 and custom OpenAI compatible endpoints. All three use the OpenAI compatible
 chat endpoint already covered by NetworkAiProvider, each with a default base
@@ -83,10 +82,16 @@ HTTP is permitted only for localhost, 127.0.0.1, and the emulator host alias
 10.0.2.2 through a network security config, so a local Ollama works while
 every other connection must still be HTTPS.
 
-
 Phase 16 note: the workflow detail screen can delete a single persisted run
 and the History screen can clear all of them, both through new DAO
 operations, with the history list updating live from the Room flow. The
 Settings Automation card shows the real MotionAccessibilityService
 connection state (refreshed while the screen is visible) and a button that
 opens the system accessibility settings directly.
+
+Phase 17 note: the plan steps and their final states are persisted with every
+run, so the workflow detail screen replays the real action timeline of the
+finished run through NazeActionTimeline, on top of the raw technical log.
+Destructive actions (Clear all, Delete run) require an explicit confirmation
+dialog. The history database moves to schema version 2 with a destructive
+migration, since run history is disposable local diagnostics.

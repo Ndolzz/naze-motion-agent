@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.17.0] PHASE 17
+### Added
+- Plan timeline replay: the validated plan steps and their final states are
+  now persisted with every run, and the workflow detail screen renders the
+  real action timeline of the finished run instead of only the raw log.
+- Confirmation dialogs: Clear all on the History screen and Delete run on
+  the detail screen both ask before deleting, since these actions cannot
+  be undone.
+### Changed
+- History database schema version 2 with a plan steps column; the table is
+  recreated on upgrade because run history is disposable local diagnostics.
+- app version 0.17.0.
+
 ## [0.16.0] PHASE 16
 ### Added
 - History management: a single persisted run can be deleted from the
@@ -56,8 +69,7 @@
 - HistoryDatabase with AgentRunEntity, AgentRunDao, and a singleton
   database builder; the DAO exposes the runs as a Flow.
 - AgentRuntime now exposes a history StateFlow fed from the database and
-  inser
-ts a record for every terminal run result.
+  inserts a record for every terminal run result.
 - The History screen lists real persisted runs (empty state when none) and
   the workflow detail screen shows real stats and replays the actual
   technical log of the selected run.
@@ -96,8 +108,7 @@ ts a record for every terminal run result.
 
 ## [0.11.0] PHASE 11
 ### Added
-- core/agent module with Moti
-onAgent: the end to end orchestrator chaining
+- core/agent module with MotionAgent: the end to end orchestrator chaining
   planner, target adapter, and execution engine into a single typed run.
 - AgentResult terminal model: Completed, Failed, Cancelled, PlanningFailed,
   TargetUnavailable, InvalidInstruction.
@@ -134,8 +145,7 @@ onAgent: the end to end orchestrator chaining
 
 ## [0.5.0] PHASE 5 AND 6
 ### Added
-- Execution engine: observe, execute, verify, recover loop dri
-ven by the
+- Execution engine: observe, execute, verify, recover loop driven by the
   agent state machine through legal transitions only.
 - Bounded retry honoring RetryPolicy per action, with timeout enforcement
   and fail fast on permanent errors.
@@ -177,8 +187,7 @@ ven by the
 
 ## [0.1.0] PHASE 0 to 3
 ### Added
-- Repository skeleton and document
-ation.
+- Repository skeleton and documentation.
 - Phase 1 specifications across ten documents plus roadmap.
 - Domain model and agent state machine with legal transition validation.
 - Unit tests for domain invariants and state transitions.
