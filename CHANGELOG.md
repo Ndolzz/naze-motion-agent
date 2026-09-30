@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.16.0] PHASE 16
+### Added
+- History management: a single persisted run can be deleted from the
+  workflow detail screen, and the whole history can be cleared with one
+  button on the History screen (AgentRunDao deleteById and clearAll,
+  AgentRuntime deleteRun and clearHistory).
+- Real accessibility service status in Settings: the Automation card shows
+  the live connection state of MotionAccessibilityService (Service
+  connected or Service off) instead of a hardcoded Off, refreshed while
+  the screen is visible.
+- Open system accessibility settings button in Settings: launches the
+  device accessibility settings screen so the user can enable the service
+  without leaving the app.
+### Changed
+- app version 0.16.0.
+
 ## [0.15.0] PHASE 15
 ### Added
 - More network provider presets: Groq, OpenRouter, and self hosted Ollama
@@ -40,7 +56,8 @@
 - HistoryDatabase with AgentRunEntity, AgentRunDao, and a singleton
   database builder; the DAO exposes the runs as a Flow.
 - AgentRuntime now exposes a history StateFlow fed from the database and
-  inserts a record for every terminal run result.
+  inser
+ts a record for every terminal run result.
 - The History screen lists real persisted runs (empty state when none) and
   the workflow detail screen shows real stats and replays the actual
   technical log of the selected run.
@@ -79,7 +96,8 @@
 
 ## [0.11.0] PHASE 11
 ### Added
-- core/agent module with MotionAgent: the end to end orchestrator chaining
+- core/agent module with Moti
+onAgent: the end to end orchestrator chaining
   planner, target adapter, and execution engine into a single typed run.
 - AgentResult terminal model: Completed, Failed, Cancelled, PlanningFailed,
   TargetUnavailable, InvalidInstruction.
@@ -116,7 +134,8 @@
 
 ## [0.5.0] PHASE 5 AND 6
 ### Added
-- Execution engine: observe, execute, verify, recover loop driven by the
+- Execution engine: observe, execute, verify, recover loop dri
+ven by the
   agent state machine through legal transitions only.
 - Bounded retry honoring RetryPolicy per action, with timeout enforcement
   and fail fast on permanent errors.
@@ -158,7 +177,8 @@
 
 ## [0.1.0] PHASE 0 to 3
 ### Added
-- Repository skeleton and documentation.
+- Repository skeleton and document
+ation.
 - Phase 1 specifications across ten documents plus roadmap.
 - Domain model and agent state machine with legal transition validation.
 - Unit tests for domain invariants and state transitions.

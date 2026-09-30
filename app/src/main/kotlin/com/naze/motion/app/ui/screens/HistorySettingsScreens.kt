@@ -19,6 +19,7 @@ import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
@@ -40,7 +41,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.naze.motion.app.agent.AgentRunUi
-import com.naze.motion.app.agent.ApiKeyStore
+import com.naze.motio
+n.app.agent.ApiKeyStore
 import com.naze.motion.core.access.AccessibilityConnection
 import com.naze.motion.app.ui.components.NazeButton
 import com.naze.motion.app.ui.components.NazeCard
@@ -91,7 +93,8 @@ fun HistoryScreen(
                     title = "No runs yet",
                     description = "Finished agent runs appear here with their full technical log.",
                     icon = Icons.Rounded.History,
-                )
+         
+       )
             }
         }
         items(runs) { run ->
@@ -142,7 +145,8 @@ fun WorkflowDetailScreen(
                         "Cancelled" -> NazeColors.textMuted
                         else -> NazeColors.error
                     },
-                    icon = if (run.outcome == "Completed") Icons.Rounded.Check else Icons.Rounded.ErrorOutline,
+                    icon = if (
+run.outcome == "Completed") Icons.Rounded.Check else Icons.Rounded.ErrorOutline,
                 )
             }
         }
@@ -200,7 +204,8 @@ private fun DetailRow(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
     ) {
-        Text(label, style = NazeTypography.body, color = NazeColors.textMuted)
+        Text(label, style = 
+NazeTypography.body, color = NazeColors.textMuted)
         Text(value, style = NazeTypography.body.copy(color = NazeColors.textPrimary))
     }
 }
@@ -242,7 +247,8 @@ fun SettingsScreen() {
     val saved = remember(savedTick, selectedId) { store.hasKey(selectedId) }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        modifier = Modifier.fill
+MaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item { Spacer(Modifier.height(8.dp)) }
@@ -278,7 +284,8 @@ fun SettingsScreen() {
                                     NazeStatusLabel(
                                         label = if (selected) "Active" else "Key saved",
                                         color = NazeColors.success,
-                                        icon = Icons.Rounded.Key,
+                                        ic
+on = Icons.Rounded.Key,
                                     )
                                 else ->
                                     NazeStatusLabel(
@@ -322,7 +329,8 @@ fun SettingsScreen() {
                             },
                             singleLine = true,
                             visualTransformation =
-                                if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+     
+                           if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
                             trailingIcon = {
                                 IconButton(onClick = { showKey = !showKey }) {
                                     Icon(
@@ -355,7 +363,8 @@ fun SettingsScreen() {
                         Spacer(Modifier.height(8.dp))
                         NazeTextField(
                             value = baseUrl,
-                            onValueChange = { baseUrl = it },
+                        
+    onValueChange = { baseUrl = it },
                             placeholder = entry.defaultBaseUrl ?: "Base URL",
                             minLines = 1,
                         )
@@ -389,7 +398,8 @@ fun SettingsScreen() {
                                         testOk = result.isSuccess
                                         testMessage = result.fold(
                                             { it },
-                                            { e -> e.message ?: "test failed" },
+                             
+               { e -> e.message ?: "test failed" },
                                         )
                                         testing = false
                                     }
@@ -433,7 +443,8 @@ fun SettingsScreen() {
             NazeCard {
                 Column {
                     Text("Automation", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    Spacer(Modifier.height(6.dp))
+                   
+ Spacer(Modifier.height(6.dp))
                     NazeStatusLabel(
                         label = if (serviceConnected) "Service connected" else "Service off",
                         color = if (serviceConnected) NazeColors.success else NazeColors.error,
