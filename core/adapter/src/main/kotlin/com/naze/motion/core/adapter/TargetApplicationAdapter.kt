@@ -14,7 +14,7 @@ interface TargetApplicationAdapter {
     /** Human readable app name, e.g. for logs and UI. */
     val displayName: String
 
-    /** Package the adapter drives, e.g. com.alightmotion.motion. */
+    /** Package the adapter drives, e.g. com.alightcreative.motion. */
     val packageName: String
 
     /** True when the target package is currently in the foreground. */

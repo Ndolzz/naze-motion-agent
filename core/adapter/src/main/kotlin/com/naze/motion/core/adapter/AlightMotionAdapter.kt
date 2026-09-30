@@ -12,6 +12,10 @@ import kotlinx.coroutines.delay
  * engine never sees app-specific logic. Queries are heuristics: when the
  * app UI differs, findKnown returns null and the planner falls back to
  * generic queries (NMA-ACTION-008 priority).
+ *
+ * The package name is the real Alight Motion package on Google Play
+ * (com.alightcreative.motion); the previous com.alightmotion.motion was
+ * not an installed package, so the device preflight refused real runs.
  */
 class AlightMotionAdapter(
     private val driver: AutomationDriver,
@@ -20,7 +24,7 @@ class AlightMotionAdapter(
 ) : TargetApplicationAdapter {
 
     override val displayName: String = "Alight Motion"
-    override val packageName: String = "com.alightmotion.motion"
+    override val packageName: String = "com.alightcreative.motion"
 
     override suspend fun isOpen(): Boolean = driver.getCurrentPackage() == packageName
 

@@ -11,11 +11,13 @@ import kotlin.reflect.KClass
  * names, so adding a target application means registering metadata plus
  * one adapter class here, and nothing else.
  *
- * The package string must match the adapter's packageName property.
+ * The package string must match the adapter's packageName property and
+ * must be the real installed package name, or the preflight install
+ * check on the device fails even though the app is installed.
  */
 object TargetAdapterRegistry {
 
-    const val ALIGHT_MOTION_PACKAGE = "com.alightmotion.motion"
+    const val ALIGHT_MOTION_PACKAGE = "com.alightcreative.motion"
     const val CAPCUT_PACKAGE = "com.lemon.lvoverseas"
 
     data class TargetApp(

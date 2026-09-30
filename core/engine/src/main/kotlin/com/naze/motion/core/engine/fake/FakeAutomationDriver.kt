@@ -39,7 +39,7 @@ private data class FakeScreenCapture(
  */
 class FakeAutomationDriver : AutomationDriver {
     var connected = true
-    var currentPackage: String? = "com.alightmotion.motion"
+    var currentPackage: String? = "com.alightcreative.motion"
     var visibleText: List<String> = emptyList()
     var contentDescriptions: List<String> = emptyList()
     var clickableNodeCount = 1

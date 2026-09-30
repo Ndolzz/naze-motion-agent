@@ -46,7 +46,7 @@ class AlightMotionAdapterTest {
         val adapter = adapter(driver)
         assertTrue(adapter.open())
         assertTrue(driver.calls.contains("launchApp"))
-        assertEquals("com.alightmotion.motion", driver.currentPackage)
+        assertEquals("com.alightcreative.motion", driver.currentPackage)
     }
 
     @Test
