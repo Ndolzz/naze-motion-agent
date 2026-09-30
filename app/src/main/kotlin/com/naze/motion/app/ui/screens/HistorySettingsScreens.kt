@@ -22,11 +22,13 @@ import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Settings as SettingsIcon
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import com.naze.motion.app.agent.AgentRunUi
 import com.naze.motion.app.agent.ApiKeyStore
 import com.naze.motion.core.access.AccessibilityConnection
+import com.naze.motion.app.ui.components.NazeActionTimeline
 import com.naze.motion.app.ui.components.NazeButton
 import com.naze.motion.app.ui.components.NazeCard
 import com.naze.motion.app.ui.components.NazeEmptyState
@@ -65,6 +68,8 @@ fun HistoryScreen(
     onOpenDetail: (Long) -> Unit,
     onDeleteAll: (() -> Unit)? = null,
 ) {
+    var confirmClear by remember { mutableStateOf(false) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -80,7 +85,7 @@ fun HistoryScreen(
                 if (onDeleteAll != null && runs.isNotEmpty()) {
                     NazeButton(
                         text = "Clear all",
-                        onClick = onDeleteAll,
+                        onClick = { confirmClear = true },
                         leadingIcon = Icons.Rounded.DeleteOutline,
                     )
                 }
@@ -118,15 +123,38 @@ fun HistoryScreen(
         }
         item { Spacer(Modifier.height(32.dp)) }
     }
+
+    if (confirmClear && onDeleteAll != null) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("Clear all runs?") },
+            text = {
+                Text("Every persisted run and its technical log will be deleted from this device. This cannot be undone.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmClear = false
+                        onDeleteAll()
+                    },
+                ) { Text("Clear all", color = NazeColors.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClear = false }) { Text("Cancel") }
+            },
+        )
+    }
 }
 
-/** Workflow detail from a persisted run: real stats and real log. */
+/** Workflow detail from a persisted run: real plan timeline, stats, and log. */
 @Composable
 fun WorkflowDetailScreen(
     run: AgentRunUi,
     onBack: () -> Unit,
     onDeleteRun: (() -> Unit)? = null,
 ) {
+    var confirmDelete by remember { mutableStateOf(false) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -145,6 +173,23 @@ fun WorkflowDetailScreen(
                     },
                     icon = if (run.outcome == "Completed") Icons.Rounded.Check else Icons.Rounded.ErrorOutline,
                 )
+            }
+        }
+        item {
+            NazeCard {
+                Column {
+                    Text("Plan timeline", style = NazeTypography.section, color = NazeColors.textPrimary)
+                    Spacer(Modifier.height(4.dp))
+                    if (run.planSteps.isEmpty()) {
+                        Text(
+                            "No plan steps recorded for this run.",
+                            style = NazeTypography.body,
+                            color = NazeColors.textMuted,
+                        )
+                    } else {
+                        NazeActionTimeline(items = run.planSteps)
+                    }
+                }
             }
         }
         item {
@@ -175,11 +220,31 @@ fun WorkflowDetailScreen(
             item {
                 NazeButton(
                     text = "Delete run",
-                    onClick = onDeleteRun,
+                    onClick = { confirmDelete = true },
                     leadingIcon = Icons.Rounded.DeleteOutline,
                 )
             }
         }
+        item { Spacer(Modifier.height(32.dp)) }
+    }
+
+    if (confirmDelete && onDeleteRun != null) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete this run?") },
+            text = { Text("The run and its technical log will be removed from this device. This cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmDelete = false
+                        onDeleteRun()
+                    },
+                ) { Text("Delete", color = NazeColors.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 
@@ -207,8 +272,8 @@ private fun DetailRow(label: String, value: String) {
 }
 
 /**
- * Settings (Phase 12/14/15/16): API keys are entered here, inside the app,
- * and stay on this device. Keys are masked by default, stored in app
+ * Settings (Phase 12/14/15/16/17): API keys are entered here, inside the
+ * app, and stay on this device. Keys are masked by default, stored in app
  * private storage, and used only for the selected provider. The Test
  * button verifies the current configuration with one real planning call
  * before saving. The Automation card shows the real accessibility service
@@ -469,7 +534,7 @@ fun SettingsScreen() {
             NazeCard {
                 Column {
                     Text("About", style = NazeTypography.section, color = NazeColors.textPrimary)
-                    DetailRow("Version", "0.16.0")
+                    DetailRow("Version", "0.17.0")
                     DetailRow("Open source licenses", "View")
                 }
             }
