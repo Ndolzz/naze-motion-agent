@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.26.0] PHASE 26
+### Added
+- Target selection per run: a new TargetSelectionStore persists which target application the agent drives, on the device only. The store accepts only registry known packages and falls back to Alight Motion, so the selection can never point at a missing adapter. The dashboard shows a Target application card listing every registry known target with a selected marker, the selected name is shown next to the connection status and named in the run confirmation dialog, and every run, preflight, launch, and allowlist check follows the selection instead of a hardcoded package. The selection also travels with the exported configuration document (a new target field, optional on import so older exports still load).
+- On-device vocabulary audit: a new TargetAuditor in core/adapter verifies a target adapter's best-effort vocabulary against the real screen through the injected driver: every known query id is resolved the same way a run would and reported as found or not found per entry. The auditor is a pure pass over the adapter, fully testable on the JVM with FakeAutomationDriver. The dashboard Vocabulary audit card runs it on the device: preflight (service connected, target installed, no active run), the selected target app is launched and given a moment to settle, and the result is a per element found/not found report with a found count summary.
+- Saved workflows: a new saved_workflows Room table (schema version 3, destructive migration like Phase 17, run history and saved workflows are disposable local data) keeps an instruction together with the target application it drove. The Workflows tab now lists saved workflows with a Run action that restores the saved target and starts the run, and a Delete action; finished runs are saved with one tap from the Save from recent runs section. Every finished run now also records the target package it drove.
+- 4 JVM tests for the vocabulary auditor (all known ids audited and sorted, found and not found entries, resolution failure reported as not found, empty vocabulary handled).
+### Changed
+- app version 0.26.0.
+
 ## [0.25.0] PHASE 25
 ### Added
 - Backup card in Settings: the configuration export and import landed in Phase 24 now have their UI. Export config hands the full on-device configuration (safety limits, allowed applications, selected provider, and provider keys) as one JSON document to the system share sheet, with an explicit warning that the document contains API keys. Import applies a pasted document through the same stores the Settings screens use, refreshes every visible editor afterwards, and reports the result inline.
@@ -13,7 +22,8 @@
 ## [0.24.0] PHASE 24
 ### Added
 - Reconnect detection and re-run offer: while a run executes, the runtime now watches the accessibility connection. When the link drops mid-run and the service later reconnects, the interrupted instruction is kept as a reconnect offer and the dashboard banner says the run can be retried; rerunLast restarts the same instruction with one tap and dismissReconnectOffer drops the offer.
-- Configuration export and import: a new ConfigPorter serializes the safety profile, the allowed applications list, the selected AI provider, and every stored provider configuration (key, model, base URL) into one JSON document, and imports the same document back through the stores, so validation and coercion stay in one place. Import checks the schema version and skips malformed entries instead of failing the whole import.
+- Configuration export and import: a new ConfigPorter serializes the safety p
+rofile, the allowed applications list, the selected AI provider, and every stored provider configuration (key, model, base URL) into one JSON document, and imports the same document back through the stores, so validation and coercion stay in one place. Import checks the schema version and skips malformed entries instead of failing the whole import.
 - Multi-adapter foundation: a new TargetAdapterRegistry in core/adapter lists every target application the agent can drive (today Alight Motion), answers isKnown and human readable display names for any package, and maps each known package to its adapter class. The runtime preflight and its target constant now resolve through the registry, so no package name is hardcoded in the app layer anymore.
 - 3 JVM tests for the registry (known target lookup, unknown package fallback, adapter class resolution).
 ### Changed
@@ -32,7 +42,8 @@ with a Remove action each, plus an Add field that validates the entered package 
 
 ## [0.22.0] PHASE 22
 ### Added
-- Configurable safety settings: a new ExecutionProfile in core/domain holds the safety caps for a run (action timeout, retry limit per action, recovery attempts, recovery backoff base) as upper bounds. The execution engine applies the profile to every action: an action can never wait longer or retry more than the configured limits, and the bounded recovery attempts and backoff come from the profile when no recovery manager is injected.
+- Configurable safety settings: a new ExecutionProfile in core/domain holds the safety caps for a run (action timeout, re
+try limit per action, recovery attempts, recovery backoff base) as upper bounds. The execution engine applies the profile to every action: an action can never wait longer or retry more than the configured limits, and the bounded recovery attempts and backoff come from the profile when no recovery manager is injected.
 - Safety limits editor in Settings: the Automation card replaces the hardcoded timeout and retry rows with four editable fields (action timeout, retry limit, recovery attempts, recovery backoff base), a Save limits action, and a Reset defaults action. Values are stored on the device only, coerced into a legal range before they are persisted, and applied by AgentRuntime on the next run.
 - 9 JVM tests for the profile (defaults, validation, clamping, caps, backoff) and its engine enforcement (retry cap, timeout cap, profile driven recovery).
 ### Changed
@@ -51,7 +62,8 @@ ears as soon as the service connects.
 ### Added
 - Export run log: the workflow detail screen gains an Export log button
 that writes a plain text report of the run (instruction, outcome, reason, action counts, duration, end time, plan timeline, and the full technical log) to the app ca che and hands it to the system share sheet through a FileProvider, with only a temporary read grant for the chosen target.
-- Run confirmation dialog: pressing RUN now asks for an explicit
+- Run confirmation dialog: pressing RUN
+ now asks for an explicit
 confirmation before the agent takes over the device, consistent with the existing confirmation pattern for destructive actions.
 - Auto launch of the target app: after the preflight check passes, the
 runtime brings Alight Motion to the front (launch intent) so every run starts on a ready screen; launching an already open app simply focuses it.
@@ -87,7 +99,8 @@ now persisted with every run, and the workflow detail screen renders the real ac
 - Confirmation dialogs: Clear all on the History scree
 n and Delete run on the detail screen both ask before deleting, since these actions cannot be undone.
 ### Changed
-- History database schema version 2 with a plan steps column; the table is
+- History database schema version 2 with a plan
+ steps column; the table is
 recreated on upgrade because run history is disposable local diagnostics.
 - app version 0.17.0.
 
@@ -117,7 +130,8 @@ field is ignored by the server and which base URL to use on the Android emulator
 ### Added
 - Live execution timeline: the console renders the real validated plan.
 MotionAgent gains an optional onPlan callback invoked after planning and before execution; the runtime maps each action to a short la bel and the structured engine log drives per step states (active, success, recovering, failed) as events arrive.
-- Test button in Settings: verifies the current key, model, and base URL
+- Test button in Settings: verifies the current
+ key, model, and base URL
 with one real planning call before saving, with an inline success or failure message (ApiKeyStore.testConfig).
 ### Changed
 - ExecutionScreen no longer uses MockData: the timeline comes from the plan
@@ -149,7 +163,8 @@ the app and stored in app private storage on the device only. They are never bak
 pport: OpenAI, Anthropic, Google Gemini, any customOpenAI compatible endpoint, and the on device Local templates can all be configured with a key, model, and optional base URL at the same time; one is selected as active.
 - NetworkAiProvider in core/ai: an AIProvider implementation for
 OPENAI_COMPATIBLE, ANTHROPIC, and GEMINI chat APIs with a system prompt pinned to the planner JSON schema, code fence stripping, and typed failures for non 2xx responses.
-- ApiKeyStore in the app: per provider key/model/base URL storage, clear,
+- ApiKeyStore in the app: per provider key/mod
+el/base URL storage, clear,
 selection, and an activeProvider factory that falls back to LocalTemplateProvider when the selected provider is not fully configured.
 - Settings screen redesign: provider list with saved key state, masked key
 field with show/hide, model and base URL fields, Save and Clear actions.
@@ -184,7 +199,8 @@ and CI runs their tests alongside the other cor e modules.
 ## [0.7.0] PHASE 7
 ### Added
 - core/access Android library module.
-- MotionAccessibilityService with explicit connection tracking and no
+- MotionAccessibilityService with explicit connection trac
+king and no
 automation logic inside the service.
 - AndroidAccessibilityDriver implementing the full AutomationDriver contract
 over AccessibilityNodeInfo with gesture fallback for coordinate taps, long presses, and swipes.
@@ -222,7 +238,8 @@ can finish a plan in a terminal state.
 - Precision Studio design system: NazeColors, NazeTypography, NazeSpacing,
 NazeShapes, NazeAnim ations tokens.
 - Reusable component library: buttons, cards, sections, text field,
-status label, status dot, divider, empty state, action timeline, action row, monospace log, progress.
+status label, status dot, divider, empty state, action timeline, action row
+, monospace log, progress.
 - Screens: Agent dashboard, Planning, Execution console, History,
 Workflow detail, Settings, plus error and recovery panels.
 - Compact navigation: top bar plus tab row (Agent, Workflows, History, Settings).
