@@ -40,13 +40,15 @@ import com.naze.motion.app.ui.theme.NazeColors
 import com.naze.motion.app.ui.theme.NazeTypography
 
 /**
- * Agent dashboard (Phase 18 to 20). Input is the focal point, not a wall of
+ * Agent dashboard (Phase 18 to 21). Input is the focal point, not a wall of
  * cards. The summary and the recent workflows list render real persisted
  * runs from the local history database; MockData is no longer used here.
  * When the preflight check refuses a run (service off or target app
  * missing), the reason is shown as a dismissible banner under the RUN
  * button instead of starting a doomed execution. Since Phase 20, RUN asks
  * for an explicit confirmation before the agent takes over the device.
+ * Since Phase 21, a getting started guide is shown while the
+ * accessibility service is not connected.
  */
 @Composable
 fun AgentDashboardScreen(
@@ -56,6 +58,7 @@ fun AgentDashboardScreen(
     onOpenHistory: () -> Unit,
     preflightError: String? = null,
     onDismissPreflight: () -> Unit = {},
+    serviceConnected: Boolean = true,
 ) {
     var instruction by remember { mutableStateOf("") }
     var confirmRun by remember { mutableStateOf(false) }
@@ -130,6 +133,29 @@ fun AgentDashboardScreen(
                                 )
                             }
                         }
+                    }
+                }
+            }
+        }
+        if (!serviceConnected) {
+            // Phase 21: getting started guide shown while the service is
+            // not connected, so a new user knows exactly what to enable.
+            item {
+                NazeSection(title = "Getting started") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GettingStartedRow(
+                            index = 1,
+                            text = "Open Settings, find Naze Motion under installed " +
+                                "services, and grant accessibility permission.",
+                        )
+                        GettingStartedRow(
+                            index = 2,
+                            text = "Install Alight Motion and open it at least once.",
+                        )
+                        GettingStartedRow(
+                            index = 3,
+                            text = "Come back here, describe your workflow, and press RUN.",
+                        )
                     }
                 }
             }
@@ -273,6 +299,27 @@ fun AgentDashboardScreen(
             dismissButton = {
                 TextButton(onClick = { confirmRun = false }) { Text("Cancel") }
             },
+        )
+    }
+}
+
+/** One numbered getting started step (Phase 21). */
+@Composable
+private fun GettingStartedRow(index: Int, text: String) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            index.toString() + ".",
+            style = NazeTypography.body.copy(color = NazeColors.primary),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text,
+            style = NazeTypography.body,
+            color = NazeColors.textMuted,
+            modifier = Modifier.weight(1f),
         )
     }
 }
