@@ -64,6 +64,21 @@ class RunOverlayService : Service() {
     private var logView: TextView? = null
     private var attached = false
     private var finished = false
+    private var cardGone = false
+
+    /**
+     * Phase 27 fix: the overlay used to wait forever for a state flow that
+     * never changed when a run failed during planning. Now any render pass
+     * notices the inactive runtime and schedules the card removal.
+     */
+    private fun maybeFinish(rt: AgentRuntime) {
+        cardGone = true
+        scope.launch {
+            delay(1500)
+            detach()
+            stopSelf()
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -119,6 +134,11 @@ class RunOverlayService : Service() {
             setAllCaps(false)
         }
         cancel.setOnClickListener { AgentRuntimeHolder.runtime?.stop() }
+        val dismiss = Button(this).apply {
+            text = "Close"
+            setAllCaps(false)
+        }
+        dismiss.setOnClickListener { detach(); stopSelf() }
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -128,6 +148,7 @@ class RunOverlayService : Service() {
             addView(step)
             addView(log)
             addView(cancel)
+            addView(dismiss)
         }
         card = root
 
@@ -196,6 +217,7 @@ class RunOverlayService : Service() {
 
     private fun render(rt: AgentRuntime) {
         if (finished) return
+        if (!rt.executionActive.value && !cardGone) maybeFinish(rt)
         val title = titleView ?: return
         val stepView = stepView ?: return
         val logView = logView ?: return

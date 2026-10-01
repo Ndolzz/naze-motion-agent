@@ -309,6 +309,10 @@ class AgentRuntime(context: Context) {
                 }
             }
             applyResult(clean, target, result)
+            // Phase 27 fix: the run is over in every sense; clear the
+            // active flag so the overlay card and the console can dismiss
+            // instead of staying stuck on screen forever.
+            executionActive.value = false
             runLive = false
             monitorJob?.cancel()
             monitorJob = null

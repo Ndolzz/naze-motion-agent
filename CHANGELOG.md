@@ -1,3 +1,16 @@
+## 0.26.7
+
+- Overlay card fixes: the run end now clears the execution active flag, so
+  the floating progress card removes itself instead of staying on screen
+  forever. A Close button was added to the card so it can always be
+  dismissed immediately, even while the run is still executing.
+- The floating card now notices a finished run on its own render pass and
+  disappears shortly after, even when the run failed during planning.
+- Planner provider retries once after a short wait on transient errors
+  (HTTP 429 and 5xx, such as the model overloaded 503) instead of failing
+  the whole run immediately.
+- versionCode 27.
+
 ## 0.26.6
 
 - Floating progress card (Phase 27): while a run executes, a small

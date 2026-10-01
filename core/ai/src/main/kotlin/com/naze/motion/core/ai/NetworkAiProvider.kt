@@ -1,6 +1,7 @@
 package com.naze.motion.core.ai
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -54,8 +55,27 @@ class NetworkAiProvider(private val config: AiProviderConfig) : AIProvider {
 
     override val name: String = "network-" + config.kind.name.lowercase()
 
+    /**
+     * One retry for transient provider trouble (429 and 5xx such as the
+     * model overloaded 503): demand spikes are usually short, so waiting
+     * briefly and trying once more often saves the run. Anything else
+     * fails immediately with the original error.
+     */
     override suspend fun complete(request: PlanningRequest): Result<String> =
-        withContext(Dispatchers.IO) { runCatching { post(request) } }
+        withContext(Dispatchers.IO) {
+            runCatching { post(request) }.recoverCatching { error ->
+                if (!isTransient(error)) throw error
+                delay(RETRY_DELAY_MS)
+                post(request)
+            }
+        }
+
+    private fun isTransient(error: Throwable): Boolean {
+        val message = error.message ?: return false
+        if (!message.startsWith("provider http ")) return false
+        val code = message.removePrefix("provider http ").substringBefore(":").trim().toIntOrNull() ?: return false
+        return code == 429 || (code in 500..599)
+    }
 
     private fun post(request: PlanningRequest): String {
         val connection = URL(endpointUrl(config)).openConnection() as HttpURLConnection
@@ -85,6 +105,9 @@ class NetworkAiProvider(private val config: AiProviderConfig) : AIProvider {
 
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
+
+        /** Wait before the single retry of a transient provider error. */
+        const val RETRY_DELAY_MS = 3_000L
 
         /** The endpoint a config points at, per provider kind. */
         fun endpointUrl(config: AiProviderConfig): String {
