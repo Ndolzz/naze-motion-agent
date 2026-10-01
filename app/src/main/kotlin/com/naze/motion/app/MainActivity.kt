@@ -27,7 +27,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.List
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.SettingsIcon
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -99,7 +99,7 @@ private fun menuIconFor(destination: Destination): ImageVector = when (destinati
     Destination.AGENT -> Icons.Rounded.PlayArrow
     Destination.WORKFLOWS -> Icons.Rounded.List
     Destination.HISTORY -> Icons.Rounded.DateRange
-    Destination.SETTINGS -> Icons.Rounded.SettingsIcon
+    Destination.SETTINGS -> Icons.Rounded.Settings
 }
 
 @Composable
