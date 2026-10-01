@@ -1,3 +1,36 @@
+## 0.27.0
+
+PART 1 — UI foundation, branding & navigation.
+
+- Design system: NazePalette with a designed dark palette (canonical
+  studio identity) and a purpose-built light palette (not an inversion);
+  tokens now cover surfaces, borders, text tiers, primary (electric
+  blue), secondary (indigo), motion (cyan), and semantic status colors.
+  NazeColors became theme-state backed, so every existing screen follows
+  the active palette without per-file rewrites.
+- Theme: System / Dark / Light selectable from the workspace menu;
+  Dark is the default. Material color scheme follows the palette.
+- Typography: full hierarchy (display, headline, title, subtitle, body,
+  label, caption, numeric, technical) with intentional weights and no
+  baked-in text colors.
+- Logo: new original Naze Motion mark — a geometric N drawn as a motion
+  path with keyframe nodes — as a scalable vector used for the splash,
+  the About dialog, and the adaptive launcher icon.
+- Splash: animated studio splash (~1500 ms): motion path draws the N,
+  keyframe nodes appear, wordmark and tagline fade in, then the splash
+  fades into the app. Replaces the blank first-open screen.
+- Navigation: the four-tab row is replaced by a clean top bar (product
+  name, workspace label, connection status) with a single overflow
+  workspace menu: Agent, Workflows, History, Settings, About, Theme.
+- Android Back: fixed the instant-exit bug. Back now closes the open
+  menu first, then the About dialog, then returns from a run detail to
+  the workspace, and only exits at the root.
+- Screen transitions: subtle fade + slide between destinations using the
+  shared design-system easing.
+- No functional changes: automation engine, accessibility service,
+  overlay service, workflows, history, safety systems untouched.
+- versionCode 29.
+
 ## 0.26.8
 
 - Screen aware planning (Phase 28): before the planner runs, the agent

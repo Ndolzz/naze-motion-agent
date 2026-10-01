@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Naze Motion mark: a geometric N drawn as one motion path with
+     keyframe nodes at both ends. Original: no resemblance to CapCut or
+     Alight Motion marks. Scalable vector, works on dark and light. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path
+        android:pathData="M25,78 L25,22 L75,78 L75,22"
+        android:strokeColor="#4C8DFF"
+        android:strokeWidth="9"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M25,78 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0"
+        android:fillColor="#22D3EE" />
+    <path
+        android:pathData="M75,22 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0"
+        android:fillColor="#22D3EE" />
+</vector>
