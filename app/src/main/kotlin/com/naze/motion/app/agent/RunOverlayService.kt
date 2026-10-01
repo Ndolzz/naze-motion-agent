@@ -75,7 +75,7 @@ class RunOverlayService : Service() {
             // next run shows the card without further setup.
             runCatching {
                 val grant = Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_LINK,
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:" + packageName),
                 )
                 grant.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
