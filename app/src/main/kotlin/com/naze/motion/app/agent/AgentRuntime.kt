@@ -49,8 +49,7 @@ import kotlinx.coroutines.launch
  * and watches the accessibility connection during a run: when the link
  * drops and later reconnects, the interrupted instruction is offered for
  * a one tap re-run. Phase 26 makes the target application a per device
- * selection persisted through TargetSelectionStore: every run, preflight,
- * and launch follows the selection instead of a hardcoded package, a
+ * selection persisted through TargetSelectionStore: every run, preflight, * and launch follows the selection instead of a hardcoded package, a
  * finished run records which target it drove, and a run can be kept as a
  * saved workflow that restores its target on reuse. Phase 26 also adds
  * the on device vocabulary audit, which launches the selected target and
@@ -75,7 +74,7 @@ class AgentRuntime(context: Context) {
 
     val executionActive = MutableStateFlow(false)
     val uiState = MutableStateFlow<AgentUiState>(AgentUiState.Idle)
-    val currentStep = MutableStateFlow(0)
+ val currentStep = MutableStateFlow(0)
     val statusConnected = MutableStateFlow(false)
     val taskName = MutableStateFlow("")
     val logLines = MutableStateFlow<List<Pair<String, String>>>(emptyList())
@@ -84,8 +83,7 @@ class AgentRuntime(context: Context) {
     val preflightError = MutableStateFlow<String?>(null)
     val reconnectOffer = MutableStateFlow<String?>(null)
 
-    // Phase 26: the selected target application, the saved workflows,
-    // and the latest on device vocabulary audit of the selected target.
+    // Phase 26: the selected target application, the saved workflows,    // and the latest on device vocabulary audit of the selected target.
     val selectedTarget = MutableStateFlow(targetSelection.load())
     val savedWorkflows = MutableStateFlow<List<SavedWorkflowUi>>(emptyList())
     val vocabularyAudit = MutableStateFlow<List<VocabularyAuditEntry>?>(null)
@@ -102,12 +100,7 @@ class AgentRuntime(context: Context) {
         scope.launch {
             savedDao.observeAll().collectLatest { workflows ->
                 savedWorkflows.value = workflows.map { workflow ->
-                    SavedWorkflowUi(
-                        id = workflow.id,
-                        instruction = workflow.instruction,
-                        targetPackage = workflow.targetPackage,
-                        createdAtMs = workflow.createdAtMs,
-                    )
+                    SavedWorkflowUi(                        id = workflow.id,                        instruction = workflow.instruction,                        targetPackage = workflow.targetPackage,                        createdAtMs = workflow.createdAtMs,                    )
                 }
             }
         }
@@ -120,7 +113,7 @@ class AgentRuntime(context: Context) {
      */
     fun selectTarget(packageName: String): Boolean {
         if (!targetSelection.save(packageName)) return false
-        selectedTarget.value = packageName
+    selectedTarget.value = packageName
         return true
     }
 
@@ -134,12 +127,7 @@ class AgentRuntime(context: Context) {
         val clean = run.instruction.trim()
         if (clean.isEmpty()) return false
         scope.launch {
-            savedDao.insert(
-                SavedWorkflowEntity(
-                    instruction = clean,
-                    targetPackage = run.targetPackage,
-                    createdAtMs = System.currentTimeMillis(),
-                )
+            savedDao.insert(                SavedWorkflowEntity(                    instruction = clean,                    targetPackage = run.targetPackage,                    createdAtMs = System.currentTimeMillis(),                )
             )
         }
         return true
@@ -178,18 +166,14 @@ class AgentRuntime(context: Context) {
             return
         }
         if (!AccessibilityConnection.connected) {
-            auditError.value = "Motion accessibility service is off. " +
-                "Enable it in system accessibility settings, then try again."
+            auditError.value = "Motion accessibility service is off. " +                "Enable it in system accessibility settings, then try again."
             return
         }
         val target = selectedTarget.value
         val targetLabel = TargetAdapterRegistry.displayNameFor(target)
-        val targetInstalled = runCatching {
-            appContext.packageManager.getPackageInfo(target, 0)
-        }.isSuccess
-        if (!targetInstalled) {
-            auditError.value = targetLabel + " is not installed on this device, " +
-                "so there is no screen to audit."
+        val installed = installedTargetPackage(target)
+        if (installed == null) {
+            auditError.value = targetLabel + " is not installed on this device, " +                "so there is no screen to audit."
             return
         }
         auditError.value = null
@@ -197,7 +181,7 @@ class AgentRuntime(context: Context) {
         auditRunning.value = true
         scope.launch {
             try {
-                val launch = appContext.packageManager.getLaunchIntentForPackage(target)
+                val launch = appContext.packageManager.getLaunchIntentForPackage(installed)
                 if (launch != null) {
                     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     runCatching { appContext.startActivity(launch) }
@@ -245,7 +229,8 @@ class AgentRuntime(context: Context) {
         // Phase 20: bring the target app to the front so the run starts
         // on a ready screen. Launching an already open app simply focuses
         // it, so this is always safe to call after preflight.
-        val launch = appContext.packageManager.getLaunchIntentForPackage(target)
+        val installed = installedTargetPackage(target) ?: target
+        val launch = appContext.packageManager.getLaunchIntentForPackage(installed)
         if (launch != null) {
             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             runCatching { appContext.startActivity(launch) }
@@ -270,7 +255,7 @@ class AgentRuntime(context: Context) {
                 if (!live) {
                     connectionLostDuringRun = true
                 }
-                statusConnected.value = live
+       statusConnected.value = live
                 delay(CONNECTION_POLL_MS)
             }
         }
@@ -326,10 +311,7 @@ class AgentRuntime(context: Context) {
             // tell the user the run can be retried with one tap.
             if (connectionLostDuringRun && AccessibilityConnection.connected) {
                 reconnectOffer.value = clean
-                preflightError.value =
-                    "The accessibility service disconnected during the run and " +
-                        "has reconnected. The run can be retried with the same " +
-                        "instruction using Run again."
+                preflightError.value =                    "The accessibility service disconnected during the run and " +                        "has reconnected. The run can be retried with the same " +                        "instruction using Run again."
             }
         }
     }
@@ -339,14 +321,23 @@ class AgentRuntime(context: Context) {
      * the driver of the current run or audit. Unknown packages have no
      * adapter by definition; callers handle the null.
      */
-    private fun adapterFor(
-        packageName: String,
-        driver: AutomationDriver,
-    ): TargetApplicationAdapter? = when (packageName) {
+    private fun adapterFor(        packageName: String,        driver: AutomationDriver,    ): TargetApplicationAdapter? = when (packageName) {
         TargetAdapterRegistry.ALIGHT_MOTION_PACKAGE -> AlightMotionAdapter(driver)
         TargetAdapterRegistry.CAPCUT_PACKAGE -> CapCutAdapter(driver)
         else -> null
     }
+
+    /**
+     * Phase 26 hotfix: the installed variant of the selected target, or
+     * null when no known variant is installed. Play Store, direct, and
+     * regional builds use different package names (for example the
+     * Alight Motion trial build), so every known variant is checked
+     * before the preflight reports the target as missing.
+     */
+    private fun installedTargetPackage(target: String): String? =
+        TargetAdapterRegistry.candidatesFor(target).firstOrNull { pkg ->
+            runCatching { appContext.packageManager.getPackageInfo(pkg, 0) }.isSuccess
+        }
 
     /**
      * Phase 19 preflight: returns a human readable reason when the run
@@ -357,21 +348,16 @@ class AgentRuntime(context: Context) {
     private fun preflight(target: String): String? {
         statusConnected.value = AccessibilityConnection.connected
         if (!AccessibilityConnection.connected) {
-            return "Motion accessibility service is off. " +
-                "Enable it in system accessibility settings, then try again."
+            return "Motion accessibility service is off. " +                "Enable it in system accessibility settings, then try again."
         }
         val targetLabel = TargetAdapterRegistry.displayNameFor(target)
-        val targetInstalled = runCatching {
-            appContext.packageManager.getPackageInfo(target, 0)
-        }.isSuccess
-        if (!targetInstalled) {
-            return targetLabel + " is not installed on this device, " +
-                "so the run has nowhere to execute."
+        val installed = installedTargetPackage(target)
+        if (installed == null) {
+            return targetLabel + " is not installed on this device, " +                "so the run has nowhere to execute."
         }
         // Phase 23: the target must be on the allowed apps list.
-        if (!allowedApps.isAllowed(target)) {
-            return targetLabel + " is not on the allowed applications " +
-                "list. Allow it in Settings to run."
+        if (!allowedApps.isAllowed(target) && !allowedApps.isAllowed(installed)) {
+            return targetLabel + " is not on the allowed applications " +                "list. Allow it in Settings to run."
         }
         return null
     }
@@ -382,8 +368,7 @@ class AgentRuntime(context: Context) {
     }
 
     /**
-     * Phase 24: runs the instruction from the pending reconnect offer,
-     * when one exists. Returns false when there is nothing to re-run or a
+     * Phase 24: runs the instruction from the pending reconnect offer,     * when one exists. Returns false when there is nothing to re-run or a
      * run is already active.
      */
     fun rerunLast(): Boolean {
@@ -436,11 +421,7 @@ class AgentRuntime(context: Context) {
         return action.type.name + detail
     }
 
-    private suspend fun applyResult(
-        instruction: String,
-        targetPackage: String,
-        result: AgentResult,
-    ) {
+    private suspend fun applyResult(        instruction: String,        targetPackage: String,        result: AgentResult,    ) {
         val outcome: String
         val reason: String?
         val actionCount: Int
@@ -457,9 +438,7 @@ class AgentRuntime(context: Context) {
                 durationMs = result.summary.durationMs
             }
             is AgentResult.Failed -> {
-                uiState.value = AgentUiState.Failed(
-                    result.summary.error?.message ?: "execution failed",
-                )
+                uiState.value = AgentUiState.Failed(                    result.summary.error?.message ?: "execution failed",                )
                 outcome = "Failed"
                 reason = result.summary.error?.message
                 actionCount = result.summary.completedActionIds.size + 1
@@ -483,9 +462,7 @@ class AgentRuntime(context: Context) {
                 durationMs = 0
             }
             is AgentResult.TargetUnavailable -> {
-                uiState.value = AgentUiState.Failed(
-                    "target app unavailable: " + result.packageName,
-                )
+                uiState.value = AgentUiState.Failed(                    "target app unavailable: " + result.packageName,                )
                 outcome = "Failed"
                 reason = "target app unavailable: " + result.packageName
                 actionCount = 0
@@ -501,19 +478,7 @@ class AgentRuntime(context: Context) {
                 durationMs = 0
             }
         }
-        dao.insert(
-            AgentRunEntity(
-                instruction = instruction,
-                outcome = outcome,
-                reason = reason,
-                actionCount = actionCount,
-                completedCount = completedCount,
-                durationMs = durationMs,
-                endedAtMs = System.currentTimeMillis(),
-                targetPackage = targetPackage,
-                logText = logLines.value.joinToString("\n") { it.first + "|" + it.second },
-                planText = planSteps.value.joinToString("\n") { it.first + "|" + it.second.name },
-            )
+        dao.insert(            AgentRunEntity(                instruction = instruction,                outcome = outcome,                reason = reason,                actionCount = actionCount,                completedCount = completedCount,                durationMs = durationMs,                endedAtMs = System.currentTimeMillis(),                targetPackage = targetPackage,                logText = logLines.value.joinToString("\n") { it.first + "|" + it.second },                planText = planSteps.value.joinToString("\n") { it.first + "|" + it.second.name },            )
         )
     }
 
@@ -539,17 +504,7 @@ class AgentRuntime(context: Context) {
         scope.cancel()
     }
 
-    private fun AgentRunEntity.toUi(): AgentRunUi = AgentRunUi(
-        id = id,
-        instruction = instruction,
-        outcome = outcome,
-        reason = reason,
-        actionCount = actionCount,
-        completedCount = completedCount,
-        durationMs = durationMs,
-        endedAtMs = endedAtMs,
-        targetPackage = targetPackage,
-        planSteps = planText.split('\n')
+    private fun AgentRunEntity.toUi(): AgentRunUi = AgentRunUi(        id = id,        instruction = instruction,        outcome = outcome,        reason = reason,        actionCount = actionCount,        completedCount = completedCount,        durationMs = durationMs,        endedAtMs = endedAtMs,        targetPackage = targetPackage,        planSteps = planText.split('\n')
             .filter { it.isNotBlank() }
             .map { line ->
                 val parts = line.split('|', limit = 2)
@@ -559,18 +514,17 @@ class AgentRuntime(context: Context) {
                 } else {
                     line to TimelineItemState.PENDING
                 }
-            },
-        logLines = logText.split('\n')
+            },        logLines = logText.split('\n')
             .filter { it.isNotBlank() }
             .map { line ->
                 val parts = line.split('|', limit = 2)
                 if (parts.size == 2) parts[0] to parts[1] else "" to line
-            },
-    )
+            },    )
 
     private fun formatTime(ms: Long): String {
         val totalSeconds = (ms / 1000) % 86_400
         val hours = totalSeconds / 3600
+
         val minutes = (totalSeconds / 60) % 60
         val seconds = totalSeconds % 60
         return "%02d:%02d:%02d".format(hours, minutes, seconds)

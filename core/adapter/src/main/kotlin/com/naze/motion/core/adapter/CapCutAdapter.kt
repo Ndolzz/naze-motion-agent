@@ -15,6 +15,10 @@ import kotlinx.coroutines.delay
  * heuristic and will be verified against real devices in a later phase;
  * when the app UI differs, findKnown returns null and the planner falls
  * back to generic queries.
+ *
+ * The global build is com.lemon.lvoverseas and the Chinese JianYing
+ * build is com.lemon.lv; candidatePackages accepts both so the device
+ * preflight stops reporting an installed app missing.
  */
 class CapCutAdapter(
     private val driver: AutomationDriver,
@@ -24,23 +28,31 @@ class CapCutAdapter(
 
     override val displayName: String = "CapCut"
     override val packageName: String = "com.lemon.lvoverseas"
+    override val candidatePackages: Set<String> = setOf(
+        TargetAdapterRegistry.CAPCUT_PACKAGE,
+        TargetAdapterRegistry.CAPCUT_CHINA_PACKAGE,
+    )
 
-    override suspend fun isOpen(): Boolean = driver.getCurrentPackage() == packageName
+    override suspend fun isOpen(): Boolean =
+        candidatePackages.contains(driver.getCurrentPackage())
 
     override suspend fun open(): Boolean {
         if (isOpen()) return true
-        if (!driver.launchApp(packageName)) return false
-        return waitForForeground(FOREGROUND_TIMEOUT_MS, FOREGROUND_POLL_MS)
+        for (candidate in candidatePackages) {
+            if (!driver.launchApp(candidate)) continue
+            if (waitForForeground(FOREGROUND_TIMEOUT_MS, FOREGROUND_POLL_MS)) return true
+        }
+        return false
     }
 
     override suspend fun waitForForeground(timeoutMs: Long, pollMs: Long): Boolean {
         if (pollMs <= 0) throw IllegalArgumentException("pollMs must be positive")
         val deadline = nowMs() + timeoutMs
         while (nowMs() <= deadline) {
-            if (driver.getCurrentPackage() == packageName) return true
+            if (candidatePackages.contains(driver.getCurrentPackage())) return true
             sleep(pollMs)
         }
-        return driver.getCurrentPackage() == packageName
+        return candidatePackages.contains(driver.getCurrentPackage())
     }
 
     override val knownQueryIds: Set<String> = KNOWN_QUERIES.keys

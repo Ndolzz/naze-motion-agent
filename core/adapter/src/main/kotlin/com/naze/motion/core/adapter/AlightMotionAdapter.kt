@@ -13,9 +13,9 @@ import kotlinx.coroutines.delay
  * app UI differs, findKnown returns null and the planner falls back to
  * generic queries (NMA-ACTION-008 priority).
  *
- * The package name is the real Alight Motion package on Google Play
- * (com.alightcreative.motion); the previous com.alightmotion.motion was
- * not an installed package, so the device preflight refused real runs.
+ * The Play Store build is com.alightcreative.motion and the direct/trial
+ * download is com.alightcreative.motion.trial; candidatePackages accepts
+ * both so the device preflight stops reporting an installed app missing.
  */
 class AlightMotionAdapter(
     private val driver: AutomationDriver,
@@ -25,23 +25,31 @@ class AlightMotionAdapter(
 
     override val displayName: String = "Alight Motion"
     override val packageName: String = "com.alightcreative.motion"
+    override val candidatePackages: Set<String> = setOf(
+        TargetAdapterRegistry.ALIGHT_MOTION_PACKAGE,
+        TargetAdapterRegistry.ALIGHT_MOTION_TRIAL_PACKAGE,
+    )
 
-    override suspend fun isOpen(): Boolean = driver.getCurrentPackage() == packageName
+    override suspend fun isOpen(): Boolean =
+        candidatePackages.contains(driver.getCurrentPackage())
 
     override suspend fun open(): Boolean {
         if (isOpen()) return true
-        if (!driver.launchApp(packageName)) return false
-        return waitForForeground(FOREGROUND_TIMEOUT_MS, FOREGROUND_POLL_MS)
+        for (candidate in candidatePackages) {
+            if (!driver.launchApp(candidate)) continue
+            if (waitForForeground(FOREGROUND_TIMEOUT_MS, FOREGROUND_POLL_MS)) return true
+        }
+        return false
     }
 
     override suspend fun waitForForeground(timeoutMs: Long, pollMs: Long): Boolean {
         if (pollMs <= 0) throw IllegalArgumentException("pollMs must be positive")
         val deadline = nowMs() + timeoutMs
         while (nowMs() <= deadline) {
-            if (driver.getCurrentPackage() == packageName) return true
+            if (candidatePackages.contains(driver.getCurrentPackage())) return true
             sleep(pollMs)
         }
-        return driver.getCurrentPackage() == packageName
+        return candidatePackages.contains(driver.getCurrentPackage())
     }
 
     override val knownQueryIds: Set<String> = KNOWN_QUERIES.keys

@@ -17,6 +17,15 @@ interface TargetApplicationAdapter {
     /** Package the adapter drives, e.g. com.alightcreative.motion. */
     val packageName: String
 
+    /**
+     * Every installed variant this adapter accepts: distribution
+     * channels ship the same app under slightly different package names
+     * (for example the Alight Motion trial build). Foreground checks and
+     * launches try each candidate. Defaults to the single packageName.
+     */
+    val candidatePackages: Set<String>
+        get() = setOf(packageName)
+
     /** True when the target package is currently in the foreground. */
     suspend fun isOpen(): Boolean
 

@@ -42,4 +42,32 @@ class TargetAdapterRegistryTest {
         assertTrue(capcut!!.qualifiedName?.endsWith("CapCutAdapter") == true)
         assertNull(TargetAdapterRegistry.adapterClassFor("com.example.unknown"))
     }
+
+    @Test
+    fun candidatesCoverEveryInstalledVariant() {
+        val alight = TargetAdapterRegistry.candidatesFor(
+            TargetAdapterRegistry.ALIGHT_MOTION_PACKAGE,
+        )
+        val capcut = TargetAdapterRegistry.candidatesFor(
+            TargetAdapterRegistry.CAPCUT_PACKAGE,
+        )
+        assertEquals(
+            listOf(
+                TargetAdapterRegistry.ALIGHT_MOTION_PACKAGE,
+                TargetAdapterRegistry.ALIGHT_MOTION_TRIAL_PACKAGE,
+            ),
+            alight,
+        )
+        assertEquals(
+            listOf(
+                TargetAdapterRegistry.CAPCUT_PACKAGE,
+                TargetAdapterRegistry.CAPCUT_CHINA_PACKAGE,
+            ),
+            capcut,
+        )
+        assertEquals(
+            listOf("com.example.unknown"),
+            TargetAdapterRegistry.candidatesFor("com.example.unknown"),
+        )
+    }
 }
