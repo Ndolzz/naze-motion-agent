@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Path
 import android.os.Build
 import android.os.Bundle
+import android.text.TextUtils
 import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
 import com.naze.motion.core.action.AccessibilityTreeSnapshot
@@ -17,6 +18,7 @@ import com.naze.motion.core.action.ScreenCapture
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import java.text.Normalizer
 import kotlin.coroutines.resume
 
 /** Node handle wrapping a live AccessibilityNodeInfo (NMA-ACCESS-004). */
@@ -68,10 +70,12 @@ class AndroidAccessibilityDriver : AutomationDriver {
         val root = svc.rootInActiveWindow ?: return@withContext null
         val collected = mutableListOf<AccessibilityNodeInfo>()
         collectNodes(root, collected, MAX_TRAVERSAL_NODES)
+
         val resourceId = query.resourceId
         val description = query.contentDescription
         val text = query.text
         val normalized = query.normalizedText
+
         val match: (AccessibilityNodeInfo) -> Boolean = when {
             resourceId != null -> { node ->
                 val viewId = node.viewIdResourceName
@@ -79,24 +83,25 @@ class AndroidAccessibilityDriver : AutomationDriver {
             }
             description != null -> { node ->
                 val d = node.contentDescription
-                d != null && d.toString() == description
+                val target = normalizeToken(description)
+                d != null && normalizeToken(d.toString()) == target
             }
             text != null -> { node ->
                 val t = node.text
-                t != null && t.toString() == text
+                val target = normalizeToken(text)
+                t != null && normalizeToken(t.toString()) == target
             }
             normalized != null -> { node ->
-                // Match either the visible label or the accessibility label:
-                // icon-only buttons (for example the Alight Motion "+"
-                // new project button) expose their name only through
-                // contentDescription, never through text.
-                val needle = normalized.trim().lowercase()
-                val t = node.text?.toString()?.trim()?.lowercase()
-                val d = node.contentDescription?.toString()?.trim()?.lowercase()
-                (t != null && t.contains(needle)) || (d != null && d.contains(needle))
+                val textMatch = normalizeToken(node.text?.toString())
+                val descMatch = normalizeToken(node.contentDescription?.toString())
+                val target = normalizeToken(normalized)
+                if (target.isNullOrBlank()) return@withContext false
+                (textMatch != null && textMatch.contains(target)) ||
+                    (descMatch != null && descMatch.contains(target))
             }
             else -> { _ -> false }
         }
+
         val matched = collected.firstOrNull(match) ?: return@withContext null
         NodeHandleImpl(clickableTargetFor(matched))
     }
@@ -248,7 +253,7 @@ class AndroidAccessibilityDriver : AutomationDriver {
     private suspend fun dispatchTap(x: Int, y: Int): Boolean {
         val path = Path()
         path.moveTo(x.toFloat(), y.toFloat())
-        val stroke = GestureDescription.StrokeDescription(path, 0L, 40L)
+        val stroke = GestureDescription.StrokeDescription(path, 0L, 800L)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
         return dispatchGesture(gesture)
     }
@@ -256,7 +261,7 @@ class AndroidAccessibilityDriver : AutomationDriver {
     private suspend fun dispatchLongPress(x: Int, y: Int): Boolean {
         val path = Path()
         path.moveTo(x.toFloat(), y.toFloat())
-        val stroke = GestureDescription.StrokeDescription(path, 0L, 800L)
+        val stroke = GestureDescription.StrokeDescription(path, 0L, 40L)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
         return dispatchGesture(gesture)
     }
@@ -286,18 +291,25 @@ class AndroidAccessibilityDriver : AutomationDriver {
     ) {
         if (into.size >= cap) return
         into.add(node)
-        for (index in 0 until node.childCount) {
-            if (into.size >= cap) return
-            val child = node.getChild(index) ?: continue
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
             collectNodes(child, into, cap)
         }
     }
 
     companion object {
-        /** Hard traversal cap so a pathological tree can never hang a read. */
-        const val MAX_TRAVERSAL_NODES = 2000
+        private const val MAX_TRAVERSAL_NODES = 2_000
+        private const val MAX_CLICKABLE_CLIMB = 6
 
-        /** Bounded ancestor climb while looking for the clickable container. */
-        const val MAX_CLICKABLE_CLIMB = 6
+        private fun normalizeToken(value: CharSequence?): String? {
+            if (value == null) return null
+            val normalized = Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replace("\\p{InCombiningDiacriticalMarks}".toRegex(), "")
+                .replace("[^A-Za-z0-9]".toRegex(), " ")
+                .lowercase()
+                .replace("\\s+".toRegex(), " ")
+                .trim()
+            return normalized.ifBlank { null }
+        }
     }
 }
