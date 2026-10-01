@@ -29,22 +29,3 @@ data class PlanningRequest(
         require(instruction.isNotBlank()) { "instruction must not be blank" }
     }
 }
-
-/** Typed planning failures (NMA-ERR, NMA-AI-005). */
-sealed class PlanningError(
-    val code: com.naze.motion.core.domain.ErrorCode,
-    override val message: String,
-) : Exception(message) {
-    class ProviderError(message: String) : PlanningError(
-        com.naze.motion.core.domain.ErrorCode.PLANNING_FAILED, message)
-    class Timeout(message: String) : PlanningError(
-        com.naze.motion.core.domain.ErrorCode.TIMEOUT, message)
-    class MalformedJson(message: String) : PlanningError(
-        com.naze.motion.core.domain.ErrorCode.INVALID_PLAN, message)
-    class SchemaViolation(message: String) : PlanningError(
-        com.naze.motion.core.domain.ErrorCode.INVALID_PLAN, message)
-    class SafetyViolation(message: String) : PlanningError(
-        com.naze.motion.core.domain.ErrorCode.INVALID_PLAN, message)
-    class InvalidAction(message: String) : PlanningError(
-        com.naze.motion.core.domain.ErrorCode.INVALID_ACTION, message)
-}

@@ -5,7 +5,7 @@ package com.naze.motion.core.ai
  * Separates technical details from presentation concerns (NMA-AI-009).
  */
 sealed class PlanningError(
-    open val message: String,
+    override val message: String,
     open val displayMessage: String = message,
 ) : Exception(message) {
 

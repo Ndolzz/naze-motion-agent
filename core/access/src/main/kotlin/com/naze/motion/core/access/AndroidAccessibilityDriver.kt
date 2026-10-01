@@ -95,9 +95,12 @@ class AndroidAccessibilityDriver : AutomationDriver {
                 val textMatch = normalizeToken(node.text?.toString())
                 val descMatch = normalizeToken(node.contentDescription?.toString())
                 val target = normalizeToken(normalized)
-                if (target.isNullOrBlank()) return@withContext false
-                (textMatch != null && textMatch.contains(target)) ||
-                    (descMatch != null && descMatch.contains(target))
+                if (target.isNullOrBlank()) {
+                    false
+                } else {
+                    (textMatch != null && textMatch.contains(target)) ||
+                        (descMatch != null && descMatch.contains(target))
+                }
             }
             else -> { _ -> false }
         }
