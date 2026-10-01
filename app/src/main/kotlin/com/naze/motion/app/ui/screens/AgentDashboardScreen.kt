@@ -1,5 +1,7 @@
 package com.naze.motion.app.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,6 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.naze.motion.app.agent.AgentRunUi
 import com.naze.motion.core.adapter.TargetAdapterRegistry
@@ -41,6 +45,7 @@ import com.naze.motion.app.ui.components.NazeSection
 import com.naze.motion.app.ui.components.NazeStatusLabel
 import com.naze.motion.app.ui.components.NazeTextField
 import com.naze.motion.app.ui.theme.NazeColors
+import com.naze.motion.app.ui.theme.NazeShapes
 import com.naze.motion.app.ui.theme.NazeTypography
 
 /**
@@ -60,6 +65,9 @@ import com.naze.motion.app.ui.theme.NazeTypography
  * is listed and the selection is applied to every run. Since Phase 26,
  * the dashboard can also audit the selected target's UI vocabulary on
  * the real device, reporting found and not found elements per entry.
+ * Since PART 2, the composer carries beginner friendly placeholder text
+ * and tappable Examples chips that only fill the input, plus a Finish
+ * setting up reminder card for users who skipped the guided setup.
  */
 @Composable
 fun AgentDashboardScreen(
@@ -81,6 +89,8 @@ fun AgentDashboardScreen(
     auditRunning: Boolean = false,
     auditError: String? = null,
     onAuditTarget: () -> Unit = {},
+    setupPending: Boolean = false,
+    onOpenSetup: () -> Unit = {},
 ) {
     var instruction by remember { mutableStateOf("") }
     var confirmRun by remember { mutableStateOf(false) }
@@ -98,18 +108,61 @@ fun AgentDashboardScreen(
         item { Spacer(Modifier.height(8.dp)) }
         item {
             Text(
-                "What should I create?",
+                "What would you like to do?",
                 style = NazeTypography.pageTitle,
                 color = NazeColors.textPrimary,
             )
+        }
+        if (setupPending) {
+            // PART 2: a clear, tappable reminder for users who skipped or
+            // unfinished the guided setup. Never a dead-end dashboard.
+            item {
+                NazeCard(padding = 12.dp, onClick = onOpenSetup) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Finish setting up Naze Motion",
+                                style = NazeTypography.body.copy(color = NazeColors.textPrimary),
+                            )
+                            Text(
+                                "A few steps are left before automation can run.",
+                                style = NazeTypography.caption,
+                                color = NazeColors.textMuted,
+                            )
+                        }
+                        NazeButton(
+                            text = "Continue setup",
+                            onClick = onOpenSetup,
+                            isPrimary = true,
+                        )
+                    }
+                }
+            }
         }
         item {
             Column {
                 NazeTextField(
                     value = instruction,
                     onValueChange = { instruction = it },
-                    placeholder = "Describe your workflow",
+                    placeholder = "Tell Naze Motion what you want to do...",
                 )
+                Spacer(Modifier.height(8.dp))
+                // PART 2: tappable examples fill the input only; a run
+                // always needs the explicit confirmation (Phase 20).
+                Text("Examples", style = NazeTypography.label, color = NazeColors.textMuted)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ExampleChip(text = "Open Alight Motion", modifier = Modifier.weight(1f)) { instruction = "Open Alight Motion" }
+                    ExampleChip(text = "Create a new project", modifier = Modifier.weight(1f)) { instruction = "Create a new project" }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ExampleChip(text = "Add a text layer saying Hello", modifier = Modifier.weight(1f)) { instruction = "Add a text layer saying Hello" }
+                    ExampleChip(text = "Export the project as MP4", modifier = Modifier.weight(1f)) { instruction = "Export the project as MP4" }
+                }
                 Spacer(Modifier.height(8.dp))
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -403,6 +456,7 @@ fun AgentDashboardScreen(
                                 style = NazeTypography.body.copy(color = NazeColors.textPrimary),
                             )
                         }
+
                         Row(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
@@ -417,6 +471,7 @@ fun AgentDashboardScreen(
                                 style = NazeTypography.body.copy(color = NazeColors.textPrimary),
                             )
                         }
+
                         Row(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
@@ -542,4 +597,24 @@ private fun GettingStartedRow(index: Int, text: String) {
             modifier = Modifier.weight(1f),
         )
     }
+}
+
+/**
+ * Tappable example prompt (PART 2): fills the input field so beginners
+ * never face a blank composer. Never executes anything on its own; the
+ * run confirmation flow (Phase 20) still applies.
+ */
+@Composable
+private fun ExampleChip(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Text(
+        text,
+        style = NazeTypography.caption,
+        color = NazeColors.textSecondary,
+        maxLines = 2,
+        modifier = modifier
+            .background(NazeColors.surfaceElevated, NazeShapes.button)
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = "Example prompt: " + text }
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+    )
 }
