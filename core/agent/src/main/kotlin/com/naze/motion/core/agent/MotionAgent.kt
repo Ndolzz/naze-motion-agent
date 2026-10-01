@@ -36,9 +36,10 @@ class MotionAgent(
         resolver: TargetResolver,
         cancellationToken: AgentCancellationToken,
         onPlan: ((ActionPlan) -> Unit)? = null,
+        observationSummary: String = "",
     ): AgentResult {
         val request = try {
-            PlanningRequest(instruction.trim(), adapter.packageName)
+            PlanningRequest(instruction.trim(), adapter.packageName, observationSummary)
         } catch (e: IllegalArgumentException) {
             return AgentResult.InvalidInstruction(e.message ?: "invalid instruction")
         }

@@ -300,14 +300,27 @@ class AgentRuntime(context: Context) {
                     "EXECUTION_FAILED" -> markStep(stepIndex, TimelineItemState.FAILED)
                 }
             }
+            // Phase 28: observe the real screen before planning. The target
+            // app UI may not be in English (an Indonesian Alight Motion shows
+            // "Proyek Baru", not "New Project"), so the planner receives the
+            // labels actually visible on screen and can target them exactly.
+            delay(SCREEN_OBSERVE_MS)
+            val observation = runCatching { describeScreen(driver) }.getOrDefault("")
             val agent = MotionAgent(AiPlanner(store.activeProvider()), adapter, engine)
-            val result = agent.run(clean, driver, resolver, cancellationToken) { plan ->
-                planSteps.value = plan.actions.mapIndexed { index, action ->
-                    describe(action) to
-                        if (index == 0) TimelineItemState.ACTIVE
-                        else TimelineItemState.PENDING
-                }
-            }
+            val result = agent.run(
+                clean,
+                driver,
+                resolver,
+                cancellationToken,
+                onPlan = { plan ->
+                    planSteps.value = plan.actions.mapIndexed { index, action ->
+                        describe(action) to
+                            if (index == 0) TimelineItemState.ACTIVE
+                            else TimelineItemState.PENDING
+                    }
+                },
+                observationSummary = observation,
+            )
             applyResult(clean, target, result)
             // Phase 27 fix: the run is over in every sense; clear the
             // active flag so the overlay card and the console can dismiss
@@ -441,6 +454,21 @@ class AgentRuntime(context: Context) {
         return action.type.name + detail
     }
 
+    /**
+     * Phase 28: a compact summary of the current screen: distinct visible
+     * labels and accessibility descriptions, bounded so the prompt stays
+     * small. Empty when the tree cannot be read.
+     */
+    private suspend fun describeScreen(driver: AutomationDriver): String {
+        val tree = driver.getAccessibilityTree() ?: return ""
+        return (tree.visibleText + tree.contentDescriptions)
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .take(40)
+            .joinToString(", ")
+    }
+
     private suspend fun applyResult(        instruction: String,        targetPackage: String,        result: AgentResult,    ) {
         val outcome: String
         val reason: String?
@@ -555,5 +583,8 @@ class AgentRuntime(context: Context) {
 
         /** Give the launched target a moment to settle before auditing. */
         private const val AUDIT_SETTLE_MS = 1_500L
+
+        /** Give the launched target a moment to draw before observing. */
+        private const val SCREEN_OBSERVE_MS = 1_200L
     }
 }

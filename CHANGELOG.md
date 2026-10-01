@@ -1,3 +1,15 @@
+## 0.26.8
+
+- Screen aware planning (Phase 28): before the planner runs, the agent
+  reads the live accessibility tree of the launched target app and passes
+  the visible labels and accessibility descriptions to the planner as an
+  observation. The planner prompt now instructs the model to pick target
+  labels from that observation, which fixes CREATE_PROJECT and friends on
+  devices whose Alight Motion / CapCut UI is not in English (an Indonesian
+  UI shows "Proyek Baru", not "New Project", so the old English-only
+  targets never matched).
+- versionCode 28.
+
 ## 0.26.7
 
 - Overlay card fixes: the run end now clears the execution active flag, so

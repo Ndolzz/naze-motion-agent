@@ -203,6 +203,7 @@ class NetworkAiProvider(private val config: AiProviderConfig) : AIProvider {
             - The first action must be OPEN_APP with parameters {"packageName":"<target app package>"}.
             - "target" may use "resourceId", "contentDescription", "text", or "normalizedText". Never use coordinates: coordinate targets are rejected.
             - TAP, LONG_PRESS, FIND_ELEMENT require "target". WAIT requires parameters {"durationMs":"100"}. TYPE_TEXT requires parameters {"text":"..."}.
+            - When an Observation is provided, choose target labels from the labels actually visible there. The target app UI language may not be English (for example an Indonesian Alight Motion shows "Proyek Baru" instead of "New Project"), so prefer the exact visible wording for normalizedText and contentDescription.
             - Keep plans short and concrete.
             """
         )
