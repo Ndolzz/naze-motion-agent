@@ -1,6 +1,7 @@
 package com.naze.motion.app
 
 import android.os.Bundle
+import android.provider.Settings as SystemSettings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -19,10 +20,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.List
 import androidx.compose.material.icons.rounded.MoreVert
@@ -37,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,22 +51,31 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.naze.motion.app.agent.AgentRuntime
+import com.naze.motion.app.agent.ApiKeyStore
+import com.naze.motion.app.agent.OnboardingStore
 import com.naze.motion.app.ui.NazeSplash
+import com.naze.motion.app.ui.components.NazeCard
 import com.naze.motion.app.ui.components.NazeDivider
 import com.naze.motion.app.ui.components.NazeStatusLabel
+import com.naze.motion.app.ui.onboarding.SetupWizard
+import com.naze.motion.app.ui.onboarding.WelcomeScreen
 import com.naze.motion.app.ui.screens.AgentDashboardScreen
+import com.naze.motion.app.ui.screens.AppSettingsScreen
 import com.naze.motion.app.ui.screens.ExecutionScreen
 import com.naze.motion.app.ui.screens.HistoryScreen
-import com.naze.motion.app.ui.screens.SettingsScreen
 import com.naze.motion.app.ui.screens.WorkflowDetailScreen
 import com.naze.motion.app.ui.screens.WorkflowsScreen
 import com.naze.motion.app.ui.theme.NazeColors
 import com.naze.motion.app.ui.theme.NazeMotionTheme
 import com.naze.motion.app.ui.theme.NazeThemeMode
 import com.naze.motion.app.ui.theme.NazeTypography
+import com.naze.motion.core.access.AccessibilityConnection
 import com.naze.motion.core.adapter.TargetAdapterRegistry
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -115,6 +128,46 @@ fun NazeMotionApp(
     // Real runtime state drives every screen (Phase 11 to 26, unchanged).
     val context = LocalContext.current
     val runtime = remember { AgentRuntime(context.applicationContext) }
+    val onboarding = remember { OnboardingStore(context.applicationContext) }
+    val keys = remember { ApiKeyStore(context.applicationContext) }
+
+    // PART 2: onboarding flow state. Returning users (completed or
+    // skipped) go straight to the app; the flags are never trusted
+    // alone because the real device state is polled below.
+    var onboardingStage by remember {
+        mutableStateOf(
+            if (onboarding.isCompleted() || onboarding.isSkipped()) "none" else "welcome",
+        )
+    }
+    var wizardStartStep by remember { mutableStateOf("device") }
+    var beginnerMode by remember { mutableStateOf(onboarding.beginnerMode()) }
+
+    // PART 2: contextual warnings for revoked permissions or a broken
+    // AI configuration. Polled against real device state, only shown
+    // after setup finished, and always with a one tap "Fix now".
+    var warnAccess by remember { mutableStateOf(false) }
+    var warnOverlay by remember { mutableStateOf(false) }
+    var warnAi by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val selected = keys.selectedId()
+            val stored = keys.load(selected)
+            val aiOk = selected == ApiKeyStore.LOCAL ||
+                (stored.apiKey.isNotBlank() && stored.model.isNotBlank())
+            warnAccess = !AccessibilityConnection.connected
+            warnOverlay = !SystemSettings.canDrawOverlays(context)
+            warnAi = !aiOk
+            delay(1000)
+        }
+    }
+
+    fun openWizardAt(step: String) {
+        wizardStartStep = step
+        destination = Destination.AGENT
+        detailId = null
+        onboardingStage = "wizard"
+    }
+
     val executionActive by runtime.executionActive.collectAsState()
     val agentState by runtime.uiState.collectAsState()
     val currentIndex by runtime.currentStep.collectAsState()
@@ -136,105 +189,193 @@ fun NazeMotionApp(
     }
 
     // Android Back priority (PART 1): menu -> about dialog -> detail
-    // screen -> execution screen -> default exit. The app no longer closes
-    // outright while the user is inside a nested screen or an open
-    // overlay. Back on the execution screen returns to the workspace the
-    // same way the Close button does; it does not stop the run and does
-    // not exit the app.
-    BackHandler(enabled = executionActive) { runtime.closeExecution() }
+    // screen -> default exit. The app no longer closes outright while
+    // the user is inside a nested screen or an open overlay.
     BackHandler(enabled = detailId != null) { detailId = null }
     BackHandler(enabled = aboutOpen) { aboutOpen = false }
     BackHandler(enabled = menuOpen) { menuOpen = false }
 
+    // PART 2: the dashboard shows first task guidance while setup is
+    // unfinished, skipped, or broken; the banners above stay honest.
+    val setupPending = !onboarding.isCompleted() || warnAccess || warnOverlay || warnAi
+
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            NazeTopBar(
-                title = "Naze Motion",
-                subtitle = if (executionActive) "EXECUTION" else workspaceLabel(destination),
-                statusConnected = statusConnected,
-                onCloseExecution = if (executionActive) {
-                    { runtime.closeExecution() }
-                } else null,
-                menuOpen = menuOpen,
-                onMenuOpenChange = { menuOpen = it },
-                onNavigate = { destination = it; detailId = null },
-                onOpenAbout = { aboutOpen = true },
-                themeMode = themeMode,
-                onThemeModeChange = onThemeModeChange,
+        when (onboardingStage) {
+            "welcome" -> WelcomeScreen(
+                onGetStarted = { onboardingStage = "wizard" },
+                onSkip = {
+                    onboarding.setSkipped(true)
+                    onboardingStage = "none"
+                },
             )
-            NazeDivider()
-            Box(modifier = Modifier.weight(1f)) {
-                // PART 1: subtle screen transitions (fade + small slide).
-                val navKey = when {
-                    executionActive -> "execution"
-                    detailId != null -> "detail-" + detailId
-                    else -> destination.name
-                }
-                AnimatedContent(
-                    targetState = navKey,
-                    transitionSpec = {
-                        (fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 16 })
-                            .togetherWith(fadeOut(tween(150)))
-                    },
-                ) { _ ->
-                    when {
-                        executionActive -> ExecutionScreen(
-                            taskName = taskName,
-                            state = agentState,
-                            currentIndex = currentIndex,
-                            timeline = planSteps,
-                            logEntries = logLines,
-                            onStopAgent = { runtime.stop() },
-                        )
-                        detailId != null && history.firstOrNull { it.id == detailId } != null ->
-                            WorkflowDetailScreen(
-                                run = history.first { it.id == detailId },
-                                onBack = { detailId = null },
-                                onDeleteRun = {
-                                    runtime.deleteRun(detailId!!)
-                                    detailId = null
-                                },
-                                onRunAgain = { runtime.start(it) },
+            "wizard" -> SetupWizard(
+                onFinished = {
+                    onboarding.setCompleted(true)
+                    onboarding.setSkipped(false)
+                    onboardingStage = "none"
+                },
+                startStep = wizardStartStep,
+            )
+            else -> Column(modifier = Modifier.fillMaxSize()) {
+                NazeTopBar(
+                    title = "Naze Motion",
+                    subtitle = if (executionActive) "EXECUTION" else workspaceLabel(destination),
+                    statusConnected = statusConnected,
+                    onCloseExecution = if (executionActive) {
+                        { runtime.closeExecution() }
+                    } else null,
+                    menuOpen = menuOpen,
+                    onMenuOpenChange = { menuOpen = it },
+                    onNavigate = { destination = it; detailId = null },
+                    onOpenAbout = { aboutOpen = true },
+                    themeMode = themeMode,
+                    onThemeModeChange = onThemeModeChange,
+                )
+                NazeDivider()
+                // PART 2: contextual warnings appear only after setup
+                // completed, never blame the user, and always offer a
+                // direct fix instead of forcing the whole wizard again.
+                if (onboarding.isCompleted() && (warnAccess || warnOverlay || warnAi)) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        if (warnAccess) {
+                            NazeContextualBanner(
+                                message = "Naze Motion can't control supported apps right now.",
+                                onFix = { openWizardAt("device") },
                             )
-                        destination == Destination.AGENT -> AgentDashboardScreen(
-                            runs = history,
-                            onStartTask = { runtime.start(it) },
-                            onOpenDetail = { detailId = it },
-                            onOpenHistory = { destination = Destination.HISTORY },
-                            preflightError = preflightError,
-                            onDismissPreflight = { runtime.dismissPreflight() },
-                            serviceConnected = statusConnected,
-                            reconnectOffer = reconnectOffer,
-                            onRerun = { runtime.rerunLast() },
-                            onDismissReconnect = { runtime.dismissReconnectOffer() },
-                            targetName = TargetAdapterRegistry.displayNameFor(selectedTarget),
-                            targets = TargetAdapterRegistry.knownTargets,
-                            selectedTargetPackage = selectedTarget,
-                            onSelectTarget = { runtime.selectTarget(it) },
-                            auditEntries = vocabularyAudit,
-                            auditRunning = auditRunning,
-                            auditError = auditError,
-                            onAuditTarget = { runtime.auditSelectedTarget() },
-                        )
-                        destination == Destination.WORKFLOWS -> WorkflowsScreen(
-                            saved = savedWorkflows,
-                            runs = history,
-                            onRunWorkflow = { runtime.startSavedWorkflow(it) },
-                            onDeleteWorkflow = { runtime.deleteWorkflow(it) },
-                            onSaveWorkflow = { runtime.saveWorkflowFromRun(it) },
-                        )
-                        destination == Destination.HISTORY -> HistoryScreen(
-                            runs = history,
-                            onOpenDetail = { detailId = it },
-                            onDeleteAll = { runtime.clearHistory() },
-                        )
-                        destination == Destination.SETTINGS -> SettingsScreen()
+                        }
+                        if (warnOverlay) {
+                            NazeContextualBanner(
+                                message = "Floating Agent access was disabled.",
+                                onFix = { openWizardAt("device") },
+                            )
+                        }
+                        if (warnAi) {
+                            NazeContextualBanner(
+                                message = "Your AI connection needs attention.",
+                                onFix = { openWizardAt("ai") },
+                            )
+                        }
+                    }
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    // PART 1: subtle screen transitions (fade + small slide).
+                    val navKey = when {
+                        executionActive -> "execution"
+                        detailId != null -> "detail-" + detailId
+                        else -> destination.name
+                    }
+                    AnimatedContent(
+                        targetState = navKey,
+                        transitionSpec = {
+                            (fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 16 })
+                                .togetherWith(fadeOut(tween(150)))
+                        },
+                    ) { _ ->
+                        when {
+                            executionActive -> ExecutionScreen(
+                                taskName = taskName,
+                                state = agentState,
+                                currentIndex = currentIndex,
+                                timeline = planSteps,
+                                logEntries = logLines,
+                                onStopAgent = { runtime.stop() },
+                            )
+                            detailId != null && history.firstOrNull { it.id == detailId } != null ->
+                                WorkflowDetailScreen(
+                                    run = history.first { it.id == detailId },
+                                    onBack = { detailId = null },
+                                    onDeleteRun = {
+                                        runtime.deleteRun(detailId!!)
+                                        detailId = null
+                                    },
+                                    onRunAgain = { runtime.start(it) },
+                                )
+                            destination == Destination.AGENT -> AgentDashboardScreen(
+                                runs = history,
+                                onStartTask = { runtime.start(it) },
+                                onOpenDetail = { detailId = it },
+                                onOpenHistory = { destination = Destination.HISTORY },
+                                preflightError = preflightError,
+                                onDismissPreflight = { runtime.dismissPreflight() },
+                                serviceConnected = statusConnected,
+                                reconnectOffer = reconnectOffer,
+                                onRerun = { runtime.rerunLast() },
+                                onDismissReconnect = { runtime.dismissReconnectOffer() },
+                                targetName = TargetAdapterRegistry.displayNameFor(selectedTarget),
+                                targets = TargetAdapterRegistry.knownTargets,
+                                selectedTargetPackage = selectedTarget,
+                                onSelectTarget = { runtime.selectTarget(it) },
+                                auditEntries = vocabularyAudit,
+                                auditRunning = auditRunning,
+                                auditError = auditError,
+                                onAuditTarget = { runtime.auditSelectedTarget() },
+                                // PART 2: first task guidance and the
+                                // setup reminder for skipped users.
+                                setupPending = setupPending,
+                                onOpenSetup = { openWizardAt("device") },
+                            )
+                            destination == Destination.WORKFLOWS -> WorkflowsScreen(
+                                saved = savedWorkflows,
+                                runs = history,
+                                onRunWorkflow = { runtime.startSavedWorkflow(it) },
+                                onDeleteWorkflow = { runtime.deleteWorkflow(it) },
+                                onSaveWorkflow = { runtime.saveWorkflowFromRun(it) },
+                            )
+                            destination == Destination.HISTORY -> HistoryScreen(
+                                runs = history,
+                                onOpenDetail = { detailId = it },
+                                onDeleteAll = { runtime.clearHistory() },
+                            )
+                            destination == Destination.SETTINGS -> AppSettingsScreen(
+                                onOpenSetup = { openWizardAt("device") },
+                                beginnerMode = beginnerMode,
+                                onBeginnerModeChange = {
+                                    beginnerMode = it
+                                    onboarding.setBeginnerMode(it)
+                                },
+                            )
+                        }
                     }
                 }
             }
         }
         if (aboutOpen) NazeAboutDialog(onClose = { aboutOpen = false })
         if (splashVisible) NazeSplash(onFinished = { splashVisible = false })
+    }
+}
+
+/**
+ * PART 2: a compact inline warning banner. The message is plain, never a
+ * raw error, and the single action is a direct fix.
+ */
+@Composable
+private fun NazeContextualBanner(
+    message: String,
+    onFix: () -> Unit,
+) {
+    NazeCard(padding = 10.dp) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = message },
+        ) {
+            Icon(
+                Icons.Rounded.ErrorOutline,
+                contentDescription = null,
+                tint = NazeColors.warning,
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                message,
+                style = NazeTypography.caption,
+                color = NazeColors.textSecondary,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onFix) {
+                Text("Fix now", color = NazeColors.primary)
+            }
+        }
     }
 }
 
