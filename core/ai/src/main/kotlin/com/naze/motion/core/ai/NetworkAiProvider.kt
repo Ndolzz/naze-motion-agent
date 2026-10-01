@@ -120,6 +120,7 @@ class NetworkAiProvider(private val config: AiProviderConfig) : AIProvider {
                     "provider http $code: ${error.take(100)}"
                 )
             }
+            errorMsg
         }
         val content = plannerJson(extractContent(config.kind, body))
         if (content.isBlank()) throw PlanningError.MalformedJson("provider returned empty content")
