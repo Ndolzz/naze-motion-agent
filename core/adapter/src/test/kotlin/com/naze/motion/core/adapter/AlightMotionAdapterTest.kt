@@ -32,6 +32,14 @@ class AlightMotionAdapterTest {
     }
 
     @Test
+    fun isOpenTrueWhenTrialPackageIsForeground() = runTest {
+        val driver = FakeAutomationDriver()
+        driver.currentPackage = TargetAdapterRegistry.ALIGHT_MOTION_TRIAL_PACKAGE
+        val adapter = adapter(driver)
+        assertTrue(adapter.isOpen())
+    }
+
+    @Test
     fun isOpenFalseWhenAnotherPackageIsForeground() = runTest {
         val driver = FakeAutomationDriver()
         driver.currentPackage = "com.android.launcher"
@@ -46,7 +54,7 @@ class AlightMotionAdapterTest {
         val adapter = adapter(driver)
         assertTrue(adapter.open())
         assertTrue(driver.calls.contains("launchApp"))
-        assertEquals("com.alightcreative.motion", driver.currentPackage)
+        assertEquals(TargetAdapterRegistry.ALIGHT_MOTION_PACKAGE, driver.currentPackage)
     }
 
     @Test
@@ -61,9 +69,21 @@ class AlightMotionAdapterTest {
     fun openFailsWhenLaunchFails() = runTest {
         val driver = FakeAutomationDriver()
         driver.currentPackage = "com.android.launcher"
-        driver.launchFailuresRemaining = 1
+        // Every candidate launch must fail, so open() cannot recover by
+        // falling through to the next package variant.
+        driver.launchFailuresRemaining = Int.MAX_VALUE
         val adapter = adapter(driver)
         assertFalse(adapter.open())
+    }
+
+    @Test
+    fun openFallsThroughToNextCandidateAfterOneLaunchFailure() = runTest {
+        val driver = FakeAutomationDriver()
+        driver.currentPackage = "com.android.launcher"
+        driver.launchFailuresRemaining = 1
+        val adapter = adapter(driver)
+        assertTrue(adapter.open())
+        assertEquals(TargetAdapterRegistry.ALIGHT_MOTION_TRIAL_PACKAGE, driver.currentPackage)
     }
 
     @Test

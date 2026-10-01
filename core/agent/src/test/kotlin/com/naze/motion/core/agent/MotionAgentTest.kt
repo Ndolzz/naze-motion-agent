@@ -14,24 +14,19 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Deterministic provider double with a scripted raw output. */
-private class FakeProvider(private val onComplete: suspend () -> String) : AIProvider {
+/** Deterministic provider double with a scripted raw output. */private class FakeProvider(private val onComplete: suspend () -> String) : AIProvider {
     override val name = "fake"
-    override suspend fun complete(request: PlanningRequest): Result<String> =
-        runCatching { onComplete() }
+    override suspend fun complete(request: PlanningRequest): Result<String> =        runCatching { onComplete() }
 }
 
 class MotionAgentTest {
 
     private val planJson = """
         {"task":"create_video","actions":[
-        {"id":"a1","type":"OPEN_APP","parameters":{"packageName":"com.alightmotion.motion"}},
-        {"id":"a2","type":"TAP","target":{"normalizedText":"new project"}},
-        {"id":"a3","type":"WAIT","parameters":{"durationMs":"100"}}]}
+        {"id":"a1","type":"OPEN_APP","parameters":{"packageName":"com.alightmotion.motion"}},        {"id":"a2","type":"TAP","target":{"normalizedText":"new project"}},        {"id":"a3","type":"WAIT","parameters":{"durationMs":"100"}}]}
     """.trimIndent()
 
-    private fun agent(driver: FakeAutomationDriver, provider: AIProvider): MotionAgent =
-        MotionAgent(AiPlanner(provider), AlightMotionAdapter(driver), nowMs = { 1L })
+    private fun agent(driver: FakeAutomationDriver, provider: AIProvider): MotionAgent =        MotionAgent(AiPlanner(provider), AlightMotionAdapter(driver), nowMs = { 1L })
 
     @Test
     fun completedRunReturnsCompletedWithFullSummary() = runTest {
@@ -87,7 +82,9 @@ class MotionAgentTest {
     fun unavailableTargetAppReturnsTargetUnavailable() = runTest {
         val driver = FakeAutomationDriver()
         driver.currentPackage = "com.other.app"
-        driver.launchFailuresRemaining = 1
+        // Every candidate launch must fail so the run cannot recover by
+        // falling through to the next package variant.
+        driver.launchFailuresRemaining = Int.MAX_VALUE
         val result = agent(driver, FakeProvider { planJson })
             .run("buat video", driver, FakeTargetResolver(), AgentCancellationToken())
         assertTrue(result is AgentResult.TargetUnavailable)
