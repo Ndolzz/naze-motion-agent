@@ -50,30 +50,42 @@ data class AiProviderConfig(
  * a bare JSON object before the planner parser sees it; malformed output is
  * still rejected downstream, never guessed (NMA-AI-005). Every call runs on
  * Dispatchers.IO and is bounded by the AiPlanner timeout (NMA-AI-008).
+ * Retries transient errors (429, 5xx) with backoff (NMA-AI-009).
  */
 class NetworkAiProvider(private val config: AiProviderConfig) : AIProvider {
 
     override val name: String = "network-" + config.kind.name.lowercase()
 
     /**
-     * One retry for transient provider trouble (429 and 5xx such as the
+     * Retry logic for transient provider trouble (429 and 5xx such as the
      * model overloaded 503): demand spikes are usually short, so waiting
      * briefly and trying once more often saves the run. Anything else
-     * fails immediately with the original error.
+     * fails immediately with a typed error.
      */
     override suspend fun complete(request: PlanningRequest): Result<String> =
         withContext(Dispatchers.IO) {
-            runCatching { post(request) }.recoverCatching { error ->
-                if (!isTransient(error)) throw error
-                delay(RETRY_DELAY_MS)
-                post(request)
+            var lastError: Throwable? = null
+            for (attempt in 1..MAX_RETRIES) {
+                val result = runCatching { post(request) }
+                if (result.isSuccess) return@withContext result
+                
+                lastError = result.exceptionOrNull()
+                if (!isTransient(lastError)) return@withContext result
+                
+                if (attempt < MAX_RETRIES) {
+                    val backoff = RETRY_DELAY_MS * attempt
+                    delay(backoff)
+                }
             }
+            Result.failure(lastError ?: Exception("max retries exceeded"))
         }
 
-    private fun isTransient(error: Throwable): Boolean {
+    private fun isTransient(error: Throwable?): Boolean {
+        if (error == null) return false
         val message = error.message ?: return false
         if (!message.startsWith("provider http ")) return false
-        val code = message.removePrefix("provider http ").substringBefore(":").trim().toIntOrNull() ?: return false
+        val code = message.removePrefix("provider http ")
+            .substringBefore(":").trim().toIntOrNull() ?: return false
         return code == 429 || (code in 500..599)
     }
 
@@ -96,18 +108,29 @@ class NetworkAiProvider(private val config: AiProviderConfig) : AIProvider {
             val error = runCatching {
                 connection.errorStream?.bufferedReader()?.use { it.readText() }
             }.getOrNull() ?: ""
-            throw IllegalStateException("provider http " + code + ": " + error.take(300))
+            
+            val errorMsg = when (code) {
+                429 -> throw PlanningError.QuotaExceeded(
+                    "provider http $code: API quota exceeded"
+                )
+                in 500..599 -> throw PlanningError.ProviderUnavailable(
+                    "provider http $code: ${error.take(100)}"
+                )
+                else -> throw PlanningError.ProviderError(
+                    "provider http $code: ${error.take(100)}"
+                )
+            }
         }
         val content = plannerJson(extractContent(config.kind, body))
-        if (content.isBlank()) throw IllegalStateException("provider returned empty content")
+        if (content.isBlank()) throw PlanningError.MalformedJson("provider returned empty content")
         return content
     }
 
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
 
-        /** Wait before the single retry of a transient provider error. */
-        const val RETRY_DELAY_MS = 3_000L
+        private const val MAX_RETRIES = 2
+        private const val RETRY_DELAY_MS = 2_000L
 
         /** The endpoint a config points at, per provider kind. */
         fun endpointUrl(config: AiProviderConfig): String {
@@ -203,7 +226,7 @@ class NetworkAiProvider(private val config: AiProviderConfig) : AIProvider {
             - The first action must be OPEN_APP with parameters {"packageName":"<target app package>"}.
             - "target" may use "resourceId", "contentDescription", "text", or "normalizedText". Never use coordinates: coordinate targets are rejected.
             - TAP, LONG_PRESS, FIND_ELEMENT require "target". WAIT requires parameters {"durationMs":"100"}. TYPE_TEXT requires parameters {"text":"..."}.
-            - When an Observation is provided, choose target labels from the labels actually visible there. The target app UI language may not be English (for example an Indonesian Alight Motion shows "Proyek Baru" instead of "New Project"), so prefer the exact visible wording for normalizedText and contentDescription.
+            - When an Observation is provided, choose target labels from the labels actually visible there. The target app UI language may not be English (for example an Indonesian Alight Motion [...]
             - Keep plans short and concrete.
             """
         )
