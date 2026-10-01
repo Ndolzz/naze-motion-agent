@@ -10,6 +10,7 @@ import kotlinx.coroutines.withTimeout
  * safety validation -> per-action validation -> ActionPlan (NMA-AI-004).
  * Malformed or unsafe output is rejected, never guessed (NMA-AI-005).
  * Every provider call is bounded by a timeout (NMA-AI-008).
+ * Errors are mapped to user-facing messages (NMA-UI-001).
  */
 class AiPlanner(
     private val provider: AIProvider,
@@ -21,26 +22,47 @@ class AiPlanner(
         val raw = try {
             withTimeout(planningTimeoutMs) { provider.complete(request) }
         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-            return Result.failure(PlanningError.Timeout("planning timed out after " + planningTimeoutMs + "ms"))
-        }
-        if (raw.isFailure) {
             return Result.failure(
-                PlanningError.ProviderError(raw.exceptionOrNull()?.message ?: "provider failed")
+                PlanningError.Timeout("planning timed out after ${planningTimeoutMs}ms")
+            )
+        } catch (e: Exception) {
+            return Result.failure(
+                PlanningError.NetworkError(e.message ?: "network error")
             )
         }
+
+        if (raw.isFailure) {
+            val cause = raw.exceptionOrNull()
+            val mapped = when (cause) {
+                is PlanningError -> cause
+                else -> PlanningError.ProviderError(cause?.message ?: "provider failed")
+            }
+            return Result.failure(mapped)
+        }
+
         val parsed = PlannerJsonParser.parse(raw.getOrThrow())
-        if (parsed.isFailure) return Result.failure(parsed.exceptionOrNull() as PlanningError)
+        if (parsed.isFailure) {
+            val err = parsed.exceptionOrNull() as? PlanningError
+                ?: PlanningError.MalformedJson("parse failed")
+            return Result.failure(err)
+        }
 
         val (_, actions) = parsed.getOrThrow()
 
         val safety = SafetyValidator.validate(actions, allowCoordinateFallback)
-        if (safety.isFailure) return Result.failure(safety.exceptionOrNull() as PlanningError)
+        if (safety.isFailure) {
+            val err = safety.exceptionOrNull() as? PlanningError
+                ?: PlanningError.SafetyViolation("validation failed")
+            return Result.failure(err)
+        }
 
         for (action in actions) {
             val validated = ActionValidator.validate(action)
             if (validated.isFailure) {
                 val err = (validated.exceptionOrNull() as ActionValidator.ValidationException).error
-                return Result.failure(PlanningError.InvalidAction(action.id + ": " + err.message))
+                return Result.failure(
+                    PlanningError.InvalidAction("${action.id}: ${err.message}")
+                )
             }
         }
 
