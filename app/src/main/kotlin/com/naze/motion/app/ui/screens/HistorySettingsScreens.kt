@@ -1030,7 +1030,13 @@ fun SettingsScreen() {
                     )
                     Spacer(Modifier.height(8.dp))
                     DetailRow("Application", "Naze Motion")
-                    DetailRow("Version", "0.25.0")
+                    DetailRow(
+                        "Version",
+                        runCatching {
+                            LocalContext.current.packageManager
+                                .getPackageInfo(LocalContext.current.packageName, 0).versionName
+                        }.getOrNull() ?: "unknown",
+                    )
                     DetailRow("Target application", "Alight Motion")
                     Spacer(Modifier.height(8.dp))
                     Text(

@@ -3,6 +3,17 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+
+    <!-- Android 11+ package visibility: without these queries the app
+         cannot see Alight Motion / CapCut and reports them as not
+         installed even when they are. -->
+    <queries>
+        <package android:name="com.alightcreative.motion" />
+        <package android:name="com.alightcreative.motion.trial" />
+        <package android:name="com.lemon.lvoverseas" />
+        <package android:name="com.lemon.lv" />
+    </queries>
+
     <application
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"

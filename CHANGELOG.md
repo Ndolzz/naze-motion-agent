@@ -1,3 +1,14 @@
+## 0.26.4
+
+- Android 11+ package visibility: declared `<queries>` for Alight Motion
+  (full + trial) and CapCut (global + China) in the manifest. This is the
+  real cause of the "not installed on this device" preflight error — the
+  OS hid the packages from the app, no matter how correct the package
+  names were.
+- About card in Settings now reads the version dynamically from
+  PackageManager instead of the stale hardcoded 0.25.0.
+- versionCode 24.
+
 # Changelog
 
 ## [0.26.3] PHASE 26 HOTFIX

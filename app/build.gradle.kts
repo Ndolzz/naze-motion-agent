@@ -13,8 +13,8 @@ android {
         applicationId = "com.naze.motion.agent"
         minSdk = 26
         targetSdk = 34
-        versionCode = 23
-        versionName = "0.26.3"
+        versionCode = 24
+        versionName = "0.26.4"
     }
 
     buildTypes {
