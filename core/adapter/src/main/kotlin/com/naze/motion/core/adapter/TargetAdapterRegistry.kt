@@ -49,6 +49,17 @@ object TargetAdapterRegistry {
     }
 
     /**
+     * Vendor prefix used to scan the installed app list for any variant
+     * of the target not covered by candidatesFor, or null when the
+     * target has no vendor prefix to scan for.
+     */
+    fun packagePrefixFor(packageName: String): String? = when (packageName) {
+        ALIGHT_MOTION_PACKAGE -> "com.alightcreative"
+        CAPCUT_PACKAGE -> "com.lemon"
+        else -> null
+    }
+
+    /**
      * Human readable name for logs and UI. Unknown packages fall back to
      * the raw package name so messages are never empty.
      */

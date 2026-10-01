@@ -329,15 +329,24 @@ class AgentRuntime(context: Context) {
 
     /**
      * Phase 26 hotfix: the installed variant of the selected target, or
-     * null when no known variant is installed. Play Store, direct, and
-     * regional builds use different package names (for example the
-     * Alight Motion trial build), so every known variant is checked
-     * before the preflight reports the target as missing.
+     * null when nothing matches. Distribution channels ship the same app
+     * under different package names, so every known variant is checked
+     * first and then the whole installed app list is scanned for the
+     * target vendor prefix (com.alightcreative for Alight Motion,
+     * com.lemon for CapCut). Any variant found on this device counts.
      */
-    private fun installedTargetPackage(target: String): String? =
-        TargetAdapterRegistry.candidatesFor(target).firstOrNull { pkg ->
-            runCatching { appContext.packageManager.getPackageInfo(pkg, 0) }.isSuccess
+    private fun installedTargetPackage(target: String): String? {
+        val manager = appContext.packageManager
+        for (pkg in TargetAdapterRegistry.candidatesFor(target)) {
+            if (runCatching { manager.getPackageInfo(pkg, 0) }.isSuccess) return pkg
         }
+        val prefix = TargetAdapterRegistry.packagePrefixFor(target) ?: return null
+        return runCatching {
+            manager.getInstalledPackages(0)
+                .map { it.packageName }
+                .firstOrNull { it.startsWith(prefix) }
+        }.getOrNull()
+    }
 
     /**
      * Phase 19 preflight: returns a human readable reason when the run

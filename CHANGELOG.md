@@ -1,221 +1,569 @@
 # Changelog
 
+## [0.26.3] PHASE 26 HOTFIX
+### Fixed
+- The installed target detection now also scans the whole installed app list for the target vendor prefix (com.alightcreative for Alight Motion, com.lemon for CapCut), so any distribution variant of either app is found even when its exact package name is not in the known candidate list. "Not installed" preflight errors can no longer be caused by an unrecognized package variant.
+### Changed
+- app version 0.26.3.
+
 ## [0.26.2] PHASE 26 HOTFIX
 ### Fixed
 - The installed app preflight now recognizes every known package variant of each target: Alight Motion (com.alightcreative.motion plus the direct download trial build com.alightcreative.motion.trial) and CapCut (com.lemon.lvoverseas plus the Chinese JianYing build com.lemon.lv). The registry exposes candidatesFor, adapters accept their variants in candidatePackages and match the foreground package and launches against all of them, and the runtime resolves the installed variant before every preflight, launch, and vocabulary audit. The allowlist accepts either the selected package or the installed variant, so "not installed" no longer appears when a non Play Store variant is the one actually installed.
 ### Changed
 - app version 0.26.2.
 
-## [0.26.0] PHASE 26
-### Added
-- Target selection per run: a new TargetSelectionStore persists which target application the agent drives, on the device only. The store accepts only registry known packages and falls back to Alight Motion, so the selection can never point at a missing adapter. The dashboard shows a Target application card listing every registry known target with a selected marker, the selected name is shown next to the connection status and named in the run confirmation dialog, and every run, preflight, launch, and allowlist check follows the selection instead of a hardcoded package. The selection also travels with the exported configuration document (a new target field, optional on import so older exports still load).
-- On-device vocabulary audit: a new TargetAuditor in core/adapter verifies a target adapter's best-effort vocabulary against the real screen through the injected driver: every known query id is resolved the same way a run would and reported as found or not found per entry. The auditor is a pure pass over the adapter, fully testable on the JVM with FakeAutomationDriver. The dashboard Vocabulary audit card runs it on the device: preflight (service connected, target installed, no active run), the selected target app is launched and given a moment to settle, and the result is a per element found/not found report with a found count summary.
-- Saved workflows: a new saved_workflows Room table (schema version 3, destructive migration like Phase 17, run history and saved workflows are disposable local data) keeps an instruction together with the target application it drove. The Workflows tab now lists saved workflows with a Run action that restores the saved target and starts the run, and a Delete action; finished runs are saved with one tap from the Save from recent runs section. Every finished run now also records the target package it drove.
-- 4 JVM tests for the vocabulary auditor (all known ids audited and sorted, found and not found entries, resolution failure reported as not found, empty vocabulary handled).
-### Changed
-- app version 0.26.0.
+package com.naze.motion.app.agentimport android.content.Contextimport android.content.Intentimport com.naze.motion.app.ui.components.TimelineItemStateimport com.naze.motion.app.ui.model.AgentUiStateimport com.naze.motion.core.access.AccessibilityConnectionimport com.naze.motion.core.access.AccessibilityTargetResolverimport com.naze.motion.core.access.AndroidAccessibilityDriverimport com.naze.motion.core.action.AutomationDriverimport com.naze.motion.core.adapter.AlightMotionAdapterimport com.naze.motion.core.adapter.CapCutAdapterimport com.naze.motion.core.adapter.TargetAdapterRegistryimport com.naze.motion.core.adapter.TargetApplicationAdapterimport com.naze.motion.core.adapter.TargetAuditorimport com.naze.motion.core.adapter.VocabularyAuditEntryimport com.naze.motion.core.agent.AgentResultimport com.naze.motion.core.agent.MotionAgentimport com.naze.motion.core.ai.AiPlannerimport com.naze.motion.core.domain.Actionimport com.naze.motion.core.domain.ActionPlanimport com.naze.motion.core.domain.AgentCancellationTokenimport com.naze.motion.core.engine.ExecutionEngineimport kotlinx.coroutines.CoroutineScopeimport kotlinx.coroutines.Dispatchersimport kotlinx.coroutines.Jobimport kotlinx.coroutines.SupervisorJobimport kotlinx.coroutines.cancelimport kotlinx.coroutines.delayimport kotlinx.coroutines.flow.MutableStateFlowimport kotlinx.coroutines.flow.collectLatestimport kotlinx.coroutines.launch
+/**
+ * AgentRuntime (Phase 11 to 26): the real wiring between the UI and the
+ * core pipeline. The dashboard starts a real run through MotionAgent over
+ * AndroidAccessibilityDriver, AccessibilityTargetResolver, and the adapter
+ * of the selected target application. The planner provider is built from
+ * ApiKeyStore. Every finished run is persisted to the local Room database
+ * together with its plan timeline and log (Phase 17), and single runs or
+ * the whole history can be deleted (Phase 16). The execution console
+ * renders a live timeline built from the validated plan and updated from
+ * the structured engine log (Phase 14). Phase 19 adds a preflight check
+ * before every run (service connected, target installed), and Phase 20
+ * auto launches the target app so the run always starts on a ready
+ * screen. Phase 22 applies the configurable safety profile (action
+ * timeout cap, retry cap, recovery bounds) from Settings to every run.
+ * Phase 24 resolves the target application through TargetAdapterRegistry
+ * and watches the accessibility connection during a run: when the link
+ * drops and later reconnects, the interrupted instruction is offered for
+ * a one tap re-run. Phase 26 makes the target application a per device
+ * selection persisted through TargetSelectionStore: every run, preflight,
+ * and launch follows the selection instead of a hardcoded package, a
+ * finished run records which target it drove, and a run can be kept as a
+ * saved workflow that restores its target on reuse. Phase 26 also adds
+ * the on device vocabulary audit, which launches the selected target and
+ * verifies every known UI element of its adapter against the real screen.
+ */
+class AgentRuntime(context: Context) {
 
-## [0.25.0] PHASE 25
-### Added
-- Backup card in Settings: the configuration export and import landed in Phase 24 now have their UI. Export config hands the full on-device configuration (safety limits, allowed applications, selected provider, and provider keys) as one JSON document to the system share sheet, with an explicit warning that the document contains API keys. Import applies a pasted document through the same stores the Settings screens use, refreshes every visible editor afterwards, and reports the result inline.
-- Reconnect banner on the dashboard: when the accessibility link dropped during the last run and has reconnected (the Phase 24 reconnect offer), the dashboard shows a warning banner with the interrupted instruction, a one tap Run again button wired to the runtime, and a dismiss action.
-- Second target adapter: a new CapCutAdapter in core/adapter, structurally identical to AlightMotionAdapter, with the package name and a best-effort vocabulary of common CapCut screen elements. The TargetAdapterRegistry now registers two target applications and maps both packages to their adapter classes, proving the Phase 24 foundation: one new adapter plus one registry entry, nothing else changed. The runtime still drives Alight Motion only; selecting a target per run is a later phase.
-- 8 JVM tests for the registry and the new adapter (both targets known, unknown fallback, both adapter classes resolved, CapCut open and vocabulary).
-### Changed
-- app version 0.25.0.
+    private val appContext = context.applicationContext
+    private val store = ApiKeyStore(context)
+    private val safety = SafetySettingsStore(context)
+    private val allowedApps = AllowedAppsStore(context)
+    private val targetSelection = TargetSelectionStore(context)
+    private val database = HistoryDatabase.get(context)
+    private val dao = database.agentRunDao()
+    private val savedDao = database.savedWorkflowDao()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var token: AgentCancellationToken? = null
+    @Volatile private var runLive = false
+    @Volatile private var connectionLostDuringRun = false
+    private var monitorJob: Job? = null
+    val executionActive = MutableStateFlow(false)
+    val uiState = MutableStateFlow<AgentUiState>(AgentUiState.Idle)
+   
+ val currentStep = MutableStateFlow(0)
+    val statusConnected = MutableStateFlow(false)
+    val taskName = MutableStateFlow("")
+    val logLines = MutableStateFlow<List<Pair<String, String>>>(emptyList())
+    val planSteps = MutableStateFlow<List<Pair<String, TimelineItemState>>>(emptyList())
+    val history = MutableStateFlow<List<AgentRunUi>>(emptyList())
+    val preflightError = MutableStateFlow<String?>(null)
+    val reconnectOffer = MutableStateFlow<String?>(null)
 
+    // Phase 26: the selected target application, the saved workflows,
+    // and the latest on device vocabulary audit of the selected target.
+    val selectedTarget = MutableStateFlow(targetSelection.load())
+    val savedWorkflows = MutableStateFlow<List<SavedWorkflowUi>>(emptyList())
+    val vocabularyAudit = MutableStateFlow<List<VocabularyAuditEntry>?>(null)
+    val auditRunning = MutableStateFlow(false)
+    val auditError = MutableStateFlow<String?>(null)
 
-## [0.24.0] PHASE 24
-### Added
-- Reconnect detection and re-run offer: while a run executes, the runtime now watches the accessibility connection. When the link drops mid-run and the service later reconnects, the interrupted instruction is kept as a reconnect offer and the dashboard banner says the run can be retried; rerunLast restarts the same instruction with one tap and dismissReconnectOffer drops the offer.
-- Configuration export and import: a new ConfigPorter serializes the safety profile, the allowed applications list, the selected AI provider, and every stored provider configuration (key, model, base URL) into one JSON document, and imports the same document back through the stores, so validation and coercion stay in one place. Import checks the schema version and skips malformed entries instead of failing the whole import.
-- Multi-adapter foundation: a new TargetAdapterRegistry in core/adapter lists every target application the agent can drive (today Alight Motion), answers isKnown and human readable display names for any package, and maps each known package to its adapter class. The runtime preflight and its target constant now resolve through the registry, so no package name is hardcoded in the app layer anymore.
-- 3 JVM tests for the registry (known target lookup, unknown package fallback, adapter class resolution).
-### Changed
-- app version 0.24.0.
+    init {
+        statusConnected.value = AccessibilityConnection.connected
+        scope.launch {
+            dao.observeRuns().collectLatest { runs ->
+                history.value = runs.map { it.toUi() }
+            }
+        }
+        scope.launch {
+            savedDao.observeAll().collectLatest { workflows ->
+                savedWorkflows.value = workflows.map { workflow ->
+                    SavedWorkflowUi(
+                        id = workflow.id,
+                        instruction = workflow.instruction,
+                        targetPackage = workflow.targetPackage,
+                        createdAtMs = workflow.createdAtMs,
+                    )
+                }
+            }
+        }
+    }
 
+    /**
+     * Phase 26: changes the target application the agent drives. The
+     * store refuses packages the registry does not know, so the selection
+     * can never point at an adapter that does not exist.
+     */
+    fun selectTarget(packageName: String): Boolean {
+        if (!targetSelection.save(packageName)) return false
+    
+    selectedTarget.value = packageName
+        return true
+    }
 
-## [0.23.0] PHASE 23
-### Added
-- Allowed applications allowlist: a new AllowedApps model in core/domain holds the list of applications the agent may open and drive, with structural package name validation, deduplication, and a bounded list size. The default list contains Alight Motion only.
-- Preflight enforcement: before every run, the runtime checks that the target application is on the allowed list and refuses the run with a clear reason when it is not, on top of the existing service and installed checks.
-- Allowed applications editor in Settings: a dedicated card lists the allowed packages 
-with a Remove action each, plus an Add field that validates the entered package name before storing it; an empty list is allowed and every run is refused until at least one app is allowed again. The values live on this device only.
-- 7 JVM tests for the allowlist model (validation, dedupe, bounds, default, removal).
-### Changed
-- app version 0.23.0.
+    /**
+     * Phase 26: keeps a finished instruction for one tap reuse, together
+     * with the target application it drove. Returns false when there is
+     * nothing worth saving.
+     */
+    fun saveWorkflowFromRun(id: Long): Boolean {
+        val run = history.value.firstOrNull { it.id == id } ?: return false
+        val clean = run.instruction.trim()
+        if (clean.isEmpty()) return false
+        scope.launch {
+            savedDao.insert(
+                SavedWorkflowEntity(
+                    instruction = clean,
+                    targetPackage = run.targetPackage,
+                    createdAtMs = System.currentTimeMillis(),
+                )
+            )
+        }
+        return true
+    }
 
-## [0.22.0] PHASE 22
-### Added
-- Configurable safety settings: a new ExecutionProfile in core/domain holds the safety caps for a run (action timeout, retry limit per action, recovery attempts, recovery backoff base) as upper bounds. The execution engine applies the profile to every action: an action can never wait longer or retry more than the configured limits, and the bounded recovery attempts and backoff come from the profile when no recovery manager is injected.
-- Safety limits editor in Settings: the Automation card replaces the hardcoded timeout and retry rows with four editable fields (action timeout, retry limit, recovery attempts, recovery backoff base), a Save limits action, and a Reset defaults action. Values are stored on the device only, coerced into a legal range before they are persisted, and applied by AgentRuntime on the next run.
-- 9 JVM tests for the profile (defaults, validation, clamping, caps, backoff) and its engine enforcement (retry cap, timeout cap, profile driven recovery).
-### Changed
-- app
- version 0.22.0.
+    /** Phase 26: deletes one saved workflow by id. */
+    fun deleteWorkflow(id: Long) {
+        scope.launch { savedDao.deleteById(id) }
+    }
 
-## [0.21.0] PHASE 21
-### Added
-- Run again from history: the workflow detail screen gains a Run again button that immediately starts a new agent run with the same stored instruction, going through the exact same flow as a fresh run (preflight check, confirmation dialog, and automatic launch of the target app).
-- Getting started guide: while MotionAccessibilityService is not connected, the dashboard shows a numbered three step guide (enable the accessibility service, open Alight Motion, run the first instruction) so a new user knows exactly what to do before the first run; the guide disappears as soon as the service connects.
-### Changed
-- app version 0.21.0.
+    /**
+     * Phase 26: starts a saved workflow, restoring the target
+     * application it was saved for before the run begins. Returns false
+     * when the workflow no longer exists or a run is already active.
+     */
+    fun startSavedWorkflow(id: Long): Boolean {
+        if (executionActive.value) return false
+        val workflow = savedWorkflows.value.firstOrNull { it.id == id }
+            ?: return false
+        selectTarget(workflow.targetPackage)
+        start(workflow.instruction)
+        return true
+    }
 
-## [0.20.0] PHASE 20
-### Added
-- Export run log: the workflow detail screen gains an Export log buttonthat writes a plain text report of the run (instruction, outcome, reason, action counts, duration, end time, plan timeline, and the full technical log) to the app ca che and hands it to the system share sheet through a
- FileProvider, with only a temporary read grant for the chosen target.
-- Run confirmation dialog: pressing RUN
- now asks for an explicitconfirmation before the agent takes over the device, consistent with the existing confirmation pattern for destructive actions.
-- Auto launch of the target app: after the preflight check passes, theruntime brings Alight Motion to the front (launch intent) so every run starts on a ready screen; launching an already open app simply focuses it.
-### Changed
-- app version 0.20.0.
+    /**
+     * Phase 26: audits the vocabulary of the selected target adapter on
+     * the real device. Launches the target, gives the screen a moment to
+     * settle, then resolves every known UI element and reports found or
+     * not found per entry. The service must be connected and the target
+     * installed; failures are reported through auditError.
+     */
+    fun auditSelectedTarget() {
+        if (auditRunning.value) return
+        if (executionActive.value) {
+            auditError.value = "A run is active. Wait for it to finish before auditing."
+            return
+        }
+        if (!AccessibilityConnection.connected) {
+            auditError.value = "Motion accessibility service is off. " +
+                "Enable it in system accessibility settings, then try again."
+            return
+        }
+        val target = selectedTarget.value
+        val targetLabel = TargetAdapterRegistry.displayNameFor(target)
+        val targetInstalled = runCatching {
+            appContext.packageManager.getPackageInfo(target, 0)
+        }.isSuccess
+        if (!targetInstalled) {
+            auditError.value = targetLabel + " is not installed on this device, " +
+                "so there is no screen to audit."
+            return
+        }
+        auditError.value = null
+        vocabularyAudit.value = null
+        auditRunning.value = true
+        scope.launch {
+            try {
+                val launch = appContext.packageManager.getLaunchIntentForPackage(target)
+                if (launch != null) {
+                    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    runCatching { appContext.startActivity(launch) }
+                }
+                delay(AUDIT_SETTLE_MS)
+                val driver = AndroidAccessibilityDriver()
+                val adapter = adapterFor(target, driver)
+                if (adapter == null) {
+                    vocabularyAudit.value = null
+                    auditError.value = "Unknown target application selected."
+                } else {
+                    vocabularyAudit.value = TargetAuditor.audit(adapter)
+                }
+            } catch (t: Throwable) {
+                vocabularyAudit.value = null
+                auditError.value = "Audit failed: " + (t.message ?: t.toString())
+            } finally {
+                auditRunning.value = false
+            }
+        }
+    }
 
-## [0.19.0] PHASE 19
-### Added
-- Preflight check before every run: AgentRuntime verifies thatMotionAccessibilityService is connected and that Alight Motion is installed on the device before the run starts, and refuses the run with a clear reason instead of failing halfway through execution.
-- Dismissible preflight banner on the dashboard: when a run is refused,
-the reason appears as an error card under the RUN button and can be dismissed once the environment is fixed.
-###
- Changed
-- app version 0.19.0.
+    /** Phase 26: dismisses the last audit error banner. */
+    fun dismissAuditError() {
+        auditError.value = null
+    }
 
-## [0.18.0] PHASE 18
-### Added
-- Real dashboard summary: the Agent tab now computes live stats from thepersisted run history (total runs, completed runs, and a success rate) instead of hardcoded mock numbers, and lists the three most recent real runs with an open action that jumps straight to the workflow detail.
-- History search: the History screen gains a search field that filterspersisted runs by instruction text, with a dedicated no matches empty state when nothing fits.
-### Changed
-- MockData is fully removed from the dashboard; every screen now rendersfrom the real Room history.
-- appversion 0.18.0.
+    fun start(instruction: String) {
+        if (executionActive.value) return
+        val clean = instruction.trim()
+        if (clean.isEmpty()) return
+        // Phase 26: the run drives the selected target application, not a
+        // hardcoded package. The selection is validated by the store and
+        // the registry, so preflight and launch follow it safely.
+        val target = selectedTarget.value
+        // Phase 19: refuse the run early instead of failing halfway
+        // through execution when the environment is not ready.
+        val blocked = preflight(target)
+        if (blocked != null) {
+            preflightError.value = blocked
+            return
+        }
+        preflightError.value = null
+        reconnectOffer.value = null
+        // Phase 20: bring the target app to the front so the run starts
+        // on a ready screen. Launching an already open app simply focuses
+        // it, so this is always safe to call after preflight.
+        val launch = appContext.packageManager.getLaunchIntentForPackage(target)
+        if (launch != null) {
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { appContext.startActivity(launch) }
+        }
+        val cancellationToken = AgentCancellationToken()
+        token = cancellationToken
+        executionActive.value = true
+        runLive = true
+        connectionLostDuringRun = false
+        taskName.value = clean
+        uiState.value = AgentUiState.Planning
+        currentStep.value = 0
+        logLines.value = emptyList()
+        planSteps.value = emptyList()
+        statusConnected.value = AccessibilityConnection.connected
+        // Phase 24: while the run is live, watch the accessibility link.
+        // A drop is recorded so a later reconnect can offer a re-run.
+        monitorJob = scope.launch {
+            while (runLive) {
+                val live = AccessibilityConnection.connected
+                if (!live) {
+                    connectionLostDuringRun = true
+                }
+         
+       statusConnected.value = live
+                delay(CONNECTION_POLL_MS)
+            }
+        }
 
-## [0.17.0] PHASE 17
-### Added
-- Plan timeline replay: the validated plan steps and their final states arenow persisted with every run, and the workflow detail screen renders the real action timeline of the finished run instead of only the raw log.
-- Confirmation dialogs: Clear all on the History screen and Delete run on the detail screen both ask before deleting, since these actions cannot be undone.
-### Changed
-- History database schema version 2 with a plan
- steps column; the table isrecreated on upgrade because run history is disposable local diagnostics.
-- app version 0.17.0.
+        scope.launch {
+            val driver = AndroidAccessibilityDriver()
+            val adapter = adapterFor(target, driver)
+            if (adapter == null) {
+                executionActive.value = false
+                runLive = false
+                monitorJob?.cancel()
+                monitorJob = null
+                uiState.value = AgentUiState.Idle
+                preflightError.value = "Unknown target application selected."
+                return@launch
+            }
+            val resolver = AccessibilityTargetResolver(driver)
+            // Phase 22: the configurable safety profile caps action
+            // timeout and retries and drives bounded recovery.
+            val engine = ExecutionEngine(profile = safety.load())
+            var stepIndex = 0
+            engine.log().onEvent { event ->
+                logLines.value = logLines.value + (formatTime(event.timestampMs) to event.type)
+                when (event.type) {
+                    "ACTION_COMPLETED" -> {
+                        markStep(stepIndex, TimelineItemState.SUCCESS)
+                        stepIndex = stepIndex + 1
+                        currentStep.value = stepIndex
+                        markStep(stepIndex, TimelineItemState.ACTIVE)
+                    }
+                    "RECOVERY_STARTED" ->
+                        markStep(stepIndex, TimelineItemState.RECOVERING)
+                    "RECOVERY_COMPLETED" ->
+                        markStep(stepIndex, TimelineItemState.ACTIVE)
+                    "EXECUTION_FAILED" -> markStep(stepIndex, TimelineItemState.FAILED)
+                }
+            }
+            val agent = MotionAgent(AiPlanner(store.activeProvider()), adapter, engine)
+            val result = agent.run(clean, driver, resolver, cancellationToken) { plan ->
+                planSteps.value = plan.actions.mapIndexed { index, action ->
+                    describe
+(action) to
+                        if (index == 0) TimelineItemState.ACTIVE
+                        else TimelineItemState.PENDING
+                }
+            }
+            applyResult(clean, target, result)
+            runLive = false
+            monitorJob?.cancel()
+            monitorJob = null
+            statusConnected.value = AccessibilityConnection.connected
+            // Phase 24: when the accessibility link dropped mid-run and
+            // the service is connected again, keep the instruction and
+            // tell the user the run can be retried with one tap.
+            if (connectionLostDuringRun && AccessibilityConnection.connected) {
+                reconnectOffer.value = clean
+                preflightError.value =
+                    "The accessibility service disconnected during the run and " +
+                        "has reconnected. The run can be retried with the same " +
+                        "instruction using Run again."
+            }
+        }
+    }
 
-## [0.16.0] PHASE 16
-### Added
-- History management: a single persisted run can be deleted from theworkflow detail screen, and the whole history can be cleared with one button on the History screen (AgentRunDao deleteById and clearAll, AgentRuntime deleteRun and clearHistory).
-- Real accessibility service status in Settings: the Automation card showsthe live connection state of MotionAccessibilityService (Service connected or Service off) instead of a hardcoded Off, refreshed while the screen is visible.
-- Open system accessibility settings button in Settings: launches thedevice accessibility settings screen so the user can enable the service without leaving the app.
-### Changed
-- app version 0.16.0.
+    /**
+     * Phase 26: the adapter of the selected target application, built on
+     * the driver of the current run or audit. Unknown packages have no
+     * adapter by definition; callers handle the null.
+     */
+    private fun adapterFor(
+        packageName: String,
+        driver: AutomationDriver,
+    ): TargetApplicationAdapter? = when (packageName) {
+        TargetAdapterRegistry.ALIGHT_MOTION_PACKAGE -> AlightMotionAdapter(driver)
+        TargetAdapterRegistry.CAPCUT_PACKAGE -> CapCutAdapter(driver)
+        else -> null
+    }
 
-## [0.15.0] PHASE 15
-### Added
-- More network provider presets: Groq, OpenRouter, and self hosted Ollama join OpenAI, Anthropic, Google Gemini, and custom OpenAI compatible endpoints in the Settings provider catalog. Every preset ships a default base URL and model and uses the OpenAI compatible chat endpoint already implemented by NetworkAiProvider.
-- Per provider hints in Settings: the Ollama entry explains that the keyfield is ignored by the server and which base URL to use on the Android emulator versus a physical device.
-- Network security config: cleartext HTTP is permitted only for localhost,
-127.0.0.1, and 10.0.2.2 so a se lf hosted Ollama on the same machine works, while all other traffic must still be HTTPS.
-### Changed
-- app version 0.15.0.
+    /**
+     * Phase 19 preflight: returns a human readable reason when the run
+     * must be refused, or null when the environment is ready. Checks that
+     * MotionAccessibilityService is connected, that the target application
+     * is installed on this device, and that it is allowed to run.
+     */
+    private fun preflight(target: String): String? {
+        statusConnected.value = AccessibilityConnection.connected
+        if (!AccessibilityConnection.connected) {
+            return "Motion accessibility service is off. " +
+                "Enable it in system accessibility settings, then try again."
+        }
+        val targetLabel = TargetAdapterRegistry.displayNameFor(target)
+        val targetInstalled = runCatching {
+            appContext.packageManager.getPackageInfo(target, 0)
+        }.isSuccess
+        if (!targetInstalled) {
+            return targetLabel + " is not installed on this device, " +
+                "so the run has nowhere to execute."
+        }
+        // Phase 23: the target must be on the allowed apps list.
+        if (!allowedApps.isAllowed(target)) {
+            return targetLabel + " is not on the allowed applications " +
+                "list. Allow it in Settings to run."
+        }
+        return null
+    }
 
-## [0.14.0] PHASE 14
-### Added
-- Live execution timeline: the console renders the real validated plan.
-MotionAgent gains an optional onPlan callback invoked after planning and before execution; the runtime maps each action to a short la bel and the structured engine log drives per step states (active, success, recovering, failed) as events arrive.
-- Test button in Settings: verifies the current
- key, model, and base URLwith one real planning call before saving, with an inline success or failure message (ApiKeyStore.testConfig).
-### Changed
-- ExecutionScreen no longer uses MockData: the timeline comes from the planand the technical log streams the actual engine events, with a building state while the plan is not ready yet.
-- app version 0.14.0.
+    /** Dismisses the preflight banner shown by the dashboard (Phase 19). */
+    fun dismissPreflight() {
+        preflightError.value = null
+    }
 
-## [0.13.0] PHASE 13
-### Added
-- Persistent run history: every finished agent run is stored in a localRoom database with its instruction, outcome, failure reason, action counts, duration, end time, and the structured engine log.
-- HistoryDatabase with AgentRunEntity, AgentRunDao, and a singletondatabase builder; the DAO exposes the runs as a Flow.
-- AgentRuntime now exposes a history StateFlow fed from the database andinserts a record for every terminal run result.
-- The History screen lists real persisted runs (empty state when none) and the workflow detail screen shows real stats and replays the actual technical log of the selected run.
-### Changed
-- Navigation keeps the selected run id instead of a mock name; the detailscreen is found from the live history list.
-- MockData history and recent workflow entries are no longer shown on theHistory screens.
-- app version 0.13.0.
+    /**
+     * Phase 24: runs the instruction from the pending reconnect offer,
+     * when one exists. Returns false when there is nothing to re-run or a
+     * run is already active.
+     */
+    fun rerunLast(): Boolean {
+        val instruction = reconnectOffer.value ?: return false
+        if (executionActive.value) return false
+        reconnectOffer.value = null
+        start(instruction)
+        return true
+    }
 
-## [0.12.0] PHASE 12
-### Added
-- In app API key management: keys are entered on the Settings screen insidethe app and stored in app private storage on the device only. They are never baked into the build and never logged.
-- Multi provider support: OpenAI, Anthropic, Google Gemini, any customOpenAI compatible endpoint, and the on device Local templates can all be configured with a key, model, and optional base URL at the same time; one is selected as active.
-- NetworkAiProvider in core/ai: an AIProvider implementation forOPENAI_COMPATIBLE, ANTHROPIC, and GEMINI chat APIs with a system prompt pinned to the planner JSON schema, code fence stripping, and typed failures for non 2xx responses.
-- ApiKeyStore in the app: per provider key/model/base URL storage, clear,
-selection, and an activeProvider factory that falls back to LocalTemplateProvider when the selected provider is not fully configured.
-- Settings screen redesign: provider list with saved key state, masked keyfield with show/hide, model and base URL fields, Save and Clear actions.
-- 17 JVM tests for NetworkAiProvider request building, endpoints, headers,
-response extraction, sanitization, and config validation.
-### Changed
-- AgentRuntime now builds its planner from ApiKeyStore.activeProvider(), soruns use the in app configured network provider when a key is present.
-- INTERNET permission added to the app manifest for network providers.
-- app version 0.12.0.
+    /** Phase 24: drops a pending reconnect offer without re-running. */
+    fun dismissReconnectOffer() {
+        reconnectOffer.value = null
+    }
 
-## [0.11.0] PHASE 11
-### Added
-- core/agent module with MotionAgent: the end to end orchestrator chainingplanner, target adapter, and execution engine into a single typed run.
-- AgentResult terminal model: Completed, Failed, Cancelled, PlanningFailed, TargetUnavailable, InvalidInstruction.
-- LocalTemplateProvider: a deterministic on device provider behind the sameAIProvider interface; output passes the full planning validation pipeline.
-- Eight end to end JVM tests over FakeAutomationDriver and FakeTargetResolver.
-- AgentRuntime app wiring: real accessibility driver, target resolver,
-AlightMotionAdapter, planner, and engine behind the dashboard and execution console. The structured engine log streams liv e into the console.
-### Changed
-- The dashboard RUN button now starts a real agent 
-run instead of flippingmock state; the status bar reflects the real accessibility connection.
-- STOP AGENT and the execution close button cancel the run through thecancellation token (Emergency Stop, NMA-SEC-008/009).
-- settings.gradle.kts now includes :core:adapter, :core:ai, and :core:agent,
-and CI runs their tests alongside the other cor e modules.
-- app version 0.11.0.
+    /** Refreshes the cached accessibility connection flag (Phase 16). */
+    fun refreshConnection() {
+        statusConnected.value = AccessibilityConnection.connected
+    }
 
-## [0.7.0] 
-PHASE 7
-### Added
-- core/access Android library module.
-- MotionAccessibilityService with explicit connection tracking and noautomation logic inside the service.
-- AndroidAccessibilityDriver implementing the full AutomationDriver contractover AccessibilityNodeInfo with gesture fallback for coordinate taps, long presses, and swipes.
-- AccessibilityTargetResolver with semantic priority resolution and explicitcoordinate fallback marking.
-- AccessibilityObservationProvider over the accessibility tree.
-- Accessibility service manifest entry and service configuration resource.
-- Bounded tree traversal cap so a pathological screen can never hang a read.
-- ObservationProvider interface in core/engine; DriverObservationSource nowimplements it.
+    /** Deletes one persisted run by id (Phase 16). */
+    fun deleteRun(id: Long) {
+        scope.launch { dao.deleteById(id) }
+    }
 
-## [0.5.0] PHASE 5 AND 6
-### Added
-- Execution engine: observe, execute, verify, recover loop driven by theagent state machine through legal transitions only.
-- Bounded retry honoring RetryPolicy per action, with timeout enforcementand fail fast on permanent errors.
-- RecoveryManager: bounded recovery attempts with backoff and cancellationchecks between attempts.
-- Structured EngineLog: typed events, levels, task and action ids, stringdetail pairs, and a live listener sink for UI streaming.
-- Verifier for every VerificationRule type against an Observation, withhonest failure reasons when a rule cannot be proven.
-- ExecutionSummary outcome model: COMPLETED, FAILED, CANCELLED.
-- FakeAutomationDriver and FakeTargetResolver deterministic doubles with scripted failure counters.
-- Engine unit tests: happy path, machine alignment, rejection, disconnect,cancellation, retry, recovery, recovery exhaustion, timeout, log coverage.
-### Changed
-- State table amendment: VERIFYING may transition to COMPLETED so the enginecan finish a plan in a terminal state.
+    /** Deletes every persisted run (Phase 16). */
+    fun clearHistory() {
+        scope.launch { dao.clearAll() }
+    }
 
-## [0.3.0] PHASE 10 UI PREVIEW
-### Added
-- Precision Studio design system: NazeColors, NazeTypography, NazeSpacing,
-NazeShapes, NazeAnim ations tokens.
-- Reusable component library
-: buttons, cards, sections, text field,
-status label, status dot, divider, empty state, action timeline, action row
-, monospace log, progress.
-- Screens: Agent dashboard, Planning, Execution console, History,
-Workflow detail, Settings, plus error and recovery panels.
-- Compact navigation: top bar plus tab row (Agent, Workflows, History, Settings).
-- Geometric N mark launcher icon.
-- Sealed AgentUiState model. No overlapping booleans.
-- Screens render from mock data only. Engine wiring arrives with Phase 5.
+    private fun markStep(index
+: Int, state: TimelineItemState) {
+        val steps = planSteps.value
+        if (index < 0 || index >= steps.size) return
+        planSteps.value = steps.toMutableList().also { it[index] = it[index].first to state }
+    }
 
-## [0.2.0] PHASE 4
-### Added
-- AutomationDriver interface, TargetResolver abstraction, ActionValidator.
-- 14 action handlers using the strategy pattern.
-- ActionDispatcher with registry based routing.
-- 15 unit tests. CI runs core action tests.
+    /** Short human readable label for one planned action. */
+    private fun describe(action: Action): String {
+        val target = action.target
+        val detail = when {
+            target?.normalizedText != null -> " " + target.normalizedText
+            target?.text != null -> " " + target.text
+            target?.contentDescription != null -> " " + target.contentDescription
+            action.parameters.containsKey("packageName") ->
+                " " + action.parameters["packageName"]
+            action.parameters.containsKey("durationMs") ->
+                " " + action.parameters["durationMs"] + "ms"
+            else -> ""
+        }
+        return action.type.name + detail
+    }
 
-## [0.1.0] PHASE 0 to 3
-### Added
-- Repository skeleton and documentation.
-- Phase 1 specifications across ten documents plus roadmap.
-- Domain model and agent state machine with legal transition validation.
-- Unit tests for domain invariants and state transitions.
+    private suspend fun applyResult(
+        instruction: String,
+        targetPackage: String,
+        result: AgentResult,
+    ) {
+        val outcome: String
+        val reason: String?
+        val actionCount: Int
+        val completedCount: Int
+        val durationMs: Long
+        when (result) {
+            is AgentResult.Completed -> {
+                currentStep.value = result.summary.completedActionIds.size
+                uiState.value = AgentUiState.Completed
+                outcome = "Completed"
+                reason = null
+                actionCount = result.summary.completedActionIds.size
+                completedCount = result.summary.completedActionIds.size
+                durationMs = result.summary.durationMs
+            }
+            is AgentResult.Failed -> {
+                uiState.value = AgentUiState.Failed(
+                    result.summary.error?.message ?: "execution failed",
+                )
+                outcome = "Failed"
+                reason = result.summary.error?.message
+                actionCount = result.summary.completedActionIds.size + 1
+                completedCount = result.summary.completedActionIds.size
+                durationMs = result.summary.durationMs
+            }
+            is AgentResult.Cancelled -> {
+                uiState.value = AgentUiState.Cancelled
+                outcome = "Cancelled"
+                reason = result.summary.error?.message
+                actionCount = result.summary.completedActionIds.size
+                completedCount = result.summary.completedActionIds.size
+                durationMs = result.summary.durationMs
+            }
+            is AgentResult.PlanningFailed -> {
+                uiState.value = AgentUiState.Failed(result.error.message)
+                outcome = "Failed"
+                reason = "planning: " + result.error.message
+                actionCount = 0
+                completedCount = 0
+                durationMs = 0
+            }
+            is AgentResult.TargetUnavailable -> {
+                uiState.value = AgentUiState.Failed(
+                    "target app unavailable: " + result.packageName,
+                )
+                outcome = "Failed"
+                reason = "target app unavailable: " + result.packageName
+                actionCount = 0
+                completedCount = 0
+                durationMs = 0
+            }
+            is AgentResult.InvalidInstruction -> {
+                uiState.value = AgentUiState.Failed(result.reason)
+                outcome = "Failed"
+                reason = result.reason
+                actionCount = 0
+                completedCount = 0
+                durationMs = 0
+            }
+        }
+        dao.insert(
+            AgentRunEntity(
+                instruction = instruction,
+                outcome = outcome,
+                reason = reason,
+                actionCount = actionCount,
+                completedCount = completedCount,
+                durationMs = durationMs,
+                endedAtMs = System.currentTimeMillis(),
+                targetPackage =
+ targetPackage,
+                logText = logLines.value.joinToString("\n") { it.first + "|" + it.second },
+                planText = planSteps.value.joinToString("\n") { it.first + "|" + it.second.name },
+            )
+        )
+    }
+
+    /** Emergency Stop (NMA-SEC-008/009): cancel the run but keep the console open. */
+    fun stop() {
+        token?.cancel()
+    }
+
+    /** Close button: cancel if still running and dismiss the console. */
+    fun closeExecution() {
+        token?.cancel()
+        runLive = false
+        monitorJob?.cancel()
+        monitorJob = null
+        executionActive.value = false
+        uiState.value = AgentUiState.Cancelled
+    }
+
+    fun shutdown() {
+        token?.cancel()
+        runLive = false
+        monitorJob?.cancel()
+        scope.cancel()
+    }
+
+    private fun AgentRunEntity.toUi(): AgentRunUi = AgentRunUi(
+        id = id,
+        instruction = instruction,
+        outcome = outcome,
+        reason = reason,
+        actionCount = actionCount,
+        completedCount = completedCount,
+        durationMs = durationMs,
+        endedAtMs = endedAtMs,
+        targetPackage = targetPackage,
+        planSteps = planText.split('\n')
+            .filter { it.isNotBlank() }
+            .map { line ->
+                val parts = line.split('|', limit = 2)
+                if (parts.size == 2) {
+                    parts[0] to (runCatching { TimelineItemState.valueOf(parts[1]) }
+                        .getOrDefault(TimelineItemState.PENDING))
+                } else {
+                    line to TimelineItemState.PENDING
+                }
+            },
+        logLines = logText.split('\n')
+            .filter { it.isNotBlank() }
+            .map { line ->
+                val parts = line.split('|', limit = 2)
+                if (parts.size == 2) parts[0] to parts[1] else "" to line
+            },
+    )
+
+    private fun formatTime(ms: Long): String {
+        val totalSeconds = (ms / 1000) % 86_400
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds / 60) % 60
+        val seconds = totalSeconds % 60
+        return "%02d:%02d:%02d".format(hours, minutes, seconds)
+    }
+
+    companion object {
+        private const val CONNECTION_POLL_MS = 500L
+        /** Give the launched target a moment to settle before auditing. */
+        private const val AUDIT_SETTLE_MS = 1_500L
+    }
+}
