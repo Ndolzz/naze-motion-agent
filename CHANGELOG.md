@@ -1,3 +1,15 @@
+## 0.26.6
+
+- Floating progress card (Phase 27): while a run executes, a small
+  draggable overlay is drawn over the target app showing the task name,
+  the current step out of the plan, the last five structured log lines,
+  and a Stop run button. The user no longer has to leave Alight Motion or
+  CapCut to know what the agent is doing; the card disappears a few
+  seconds after the run ends. Requires the display over other apps
+  permission; on the first run the service opens the system grant screen
+  once and the run itself is never blocked.
+- versionCode 26.
+
 ## 0.26.5
 
 - Target resolution is now robust against icon-only and container-wrapped

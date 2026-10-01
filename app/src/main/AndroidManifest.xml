@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Phase 27: floating progress card over the target app during a run. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
 
     <!-- Android 11+ package visibility: without these queries the app
@@ -44,5 +46,9 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+        <!-- Phase 27: floating progress card drawn over the target app. -->
+        <service
+            android:name="com.naze.motion.app.agent.RunOverlayService"
+            android:exported="false" />
     </application>
 </manifest>

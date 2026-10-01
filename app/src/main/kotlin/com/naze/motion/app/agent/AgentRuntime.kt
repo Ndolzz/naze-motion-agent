@@ -91,6 +91,9 @@ class AgentRuntime(context: Context) {
     val auditError = MutableStateFlow<String?>(null)
 
     init {
+        // Phase 27: the overlay progress service (same process) mirrors
+        // this runtime, so it always follows the newest instance.
+        AgentRuntimeHolder.runtime = this
         statusConnected.value = AccessibilityConnection.connected
         scope.launch {
             dao.observeRuns().collectLatest { runs ->
@@ -246,6 +249,10 @@ class AgentRuntime(context: Context) {
         logLines.value = emptyList()
         planSteps.value = emptyList()
         statusConnected.value = AccessibilityConnection.connected
+
+        // Phase 27: show the floating progress card with the live timeline
+        // and log over the target app while the run executes.
+        RunOverlayController.start(appContext)
 
         // Phase 24: while the run is live, watch the accessibility link.
         // A drop is recorded so a later reconnect can offer a re-run.
