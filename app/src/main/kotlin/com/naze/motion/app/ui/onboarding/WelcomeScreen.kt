@@ -24,6 +24,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -60,7 +61,7 @@ fun WelcomeScreen(
         Spacer(Modifier.height(20.dp))
         Text(
             "NAZE MOTION",
-            style = NazeTypography.display.copy(letterSpacing = androidx.compose.ui.unit.TextUnit.Unspecified),
+            style = NazeTypography.display,
             color = NazeColors.textPrimary,
         )
         Spacer(Modifier.height(6.dp))
@@ -110,7 +111,7 @@ fun WelcomeScreen(
 
 @Composable
 private fun WelcomeBenefit(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     title: String,
     description: String,
 ) {

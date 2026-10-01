@@ -1,5 +1,6 @@
 package com.naze.motion.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -42,6 +43,10 @@ fun AppSettingsScreen(
     onBeginnerModeChange: (Boolean) -> Unit,
 ) {
     var advancedOpen by remember { mutableStateOf(false) }
+
+    // Android Back from the advanced area returns to the simple
+    // settings instead of leaving the app (PART 1 back priority).
+    BackHandler(enabled = advancedOpen) { advancedOpen = false }
 
     if (advancedOpen) {
         Column(modifier = Modifier.fillMaxSize()) {

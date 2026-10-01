@@ -6,7 +6,6 @@ import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,7 +48,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.naze.motion.app.agent.ApiKeyStore
 import com.naze.motion.core.access.AccessibilityConnection
@@ -148,12 +146,35 @@ fun SetupWizard(
     fun saveAndTest() {
         val entry = providerEntry ?: return
         val kind = entry.kind ?: return
-        val baseUrl = store.load(providerId).baseUrl.ifBlank { entry.defaultBaseUrl ?: "" }
-        val model = modelCustom.trim().ifBlank { entry.defaultModel ?: "" }
-        store.save(providerId, keyText.trim(), model, baseUrl)
+        // Never clobber a stored key or model with a blank field: the
+        // wizard may run again later on top of an existing config.
+        val storedBefore = store.load(providerId)
+        val baseUrl = storedBefore.baseUrl.ifBlank { entry.defaultBaseUrl ?: "" }
+        val model = modelCustom.trim().ifBlank {
+            storedBefore.model.ifBlank { entry.defaultModel ?: "" }
+        }
+        val key = keyText.trim().ifBlank { storedBefore.apiKey }
+        store.save(providerId, key, model, baseUrl)
         store.setSelected(providerId)
         step = WizardStep.TEST
-        runTest(kind, baseUrl, model, scope, { testing = it; if (it) { testStage = 0; testFailure = null } }, { ok, failure -> testOk = ok; testFailure = failure })
+        runTest(
+            kind = kind,
+            baseUrl = baseUrl,
+            apiKey = key,
+            model = model,
+            scope = scope,
+            setTesting = {
+                testing = it
+                if (it) {
+                    testStage = 0
+                    testFailure = null
+                }
+            },
+            setResult = { ok, failure ->
+                testOk = ok
+                testFailure = failure
+            },
+        )
     }
 
     Column(
@@ -199,12 +220,36 @@ fun SetupWizard(
                 testStage = testStage,
                 testOk = testOk,
                 testFailure = testFailure,
+                onStageChange = { testStage = it },
                 onTest = {
                     val entry = providerEntry ?: return@TestStep
                     val kind = entry.kind ?: return@TestStep
-                    val baseUrl = store.load(providerId).baseUrl.ifBlank { entry.defaultBaseUrl ?: "" }
-                    val model = modelCustom.trim().ifBlank { entry.defaultModel ?: "" }
-                    runTest(kind, baseUrl, model, scope, { testing = it; if (it) { testStage = 0; testFailure = null } }, { ok, failure -> testOk = ok; testFailure = failure })
+                    val storedBefore = store.load(providerId)
+                    val baseUrl = storedBefore.baseUrl.ifBlank { entry.defaultBaseUrl ?: "" }
+                    val model = modelCustom.trim().ifBlank {
+                        storedBefore.model.ifBlank { entry.defaultModel ?: "" }
+                    }
+                    val key = keyText.trim().ifBlank { storedBefore.apiKey }
+                    store.save(providerId, key, model, baseUrl)
+                    store.setSelected(providerId)
+                    runTest(
+                        kind = kind,
+                        baseUrl = baseUrl,
+                        apiKey = key,
+                        model = model,
+                        scope = scope,
+                        setTesting = {
+                            testing = it
+                            if (it) {
+                                testStage = 0
+                                testFailure = null
+                            }
+                        },
+                        setResult = { ok, failure ->
+                            testOk = ok
+                            testFailure = failure
+                        },
+                    )
                 },
                 onContinue = { step = WizardStep.READY },
                 onChooseModel = { step = WizardStep.AI },
@@ -221,12 +266,12 @@ fun SetupWizard(
     }
 }
 
-/** One real testConfig call with staged, human-readable progress. */
+/** One real testConfig call; staged progress is driven by TestStep's pulse. */
 private fun runTest(
     kind: com.naze.motion.core.ai.AiProviderKind,
     baseUrl: String,
+    apiKey: String,
     model: String,
-    key: String,
     scope: kotlinx.coroutines.CoroutineScope,
     setTesting: (Boolean) -> Unit,
     setResult: (Boolean, TestFailure?) -> Unit,
@@ -236,7 +281,7 @@ private fun runTest(
         val result = ApiKeyStore.testConfig(
             kind = kind,
             baseUrl = baseUrl,
-            apiKey = key,
+            apiKey = apiKey,
             model = model,
         )
         result.fold(
@@ -259,6 +304,14 @@ private data class TestFailure(
 private fun mapFailure(e: Throwable): TestFailure {
     val raw = e.message ?: "unknown error"
     return when {
+        raw.contains("incomplete configuration") ->
+            TestFailure(
+                title = "A few details are missing",
+                message = "Add an API key and a model, then try again.",
+                technical = raw,
+                showChooseModel = false,
+                showCheckKey = true,
+            )
         raw.contains("http 401") || raw.contains("http 403") ->
             TestFailure(
                 title = "We couldn't connect your AI",
@@ -460,10 +513,9 @@ private fun DeviceStep(
         }
         Spacer(Modifier.height(10.dp))
         NazeButton(
-            text = "Allow access",
+            text = if (overlayOk) "Open settings" else "Allow access",
             onClick = onAllowOverlay,
             isPrimary = !overlayOk,
-            enabled = !overlayOk,
         )
         Spacer(Modifier.height(6.dp))
         HelpExpander(
@@ -566,7 +618,7 @@ private fun AiStep(
             }
         } else if (entry != null && entry.kind != null) {
             Spacer(Modifier.height(16.dp))
-            Text("Connect your AI", style = NazeTypography.section, color = NazeColors.textPrimary)
+            Text("Add your API key", style = NazeTypography.section, color = NazeColors.textPrimary)
             Spacer(Modifier.height(6.dp))
             Text(
                 "Your API key allows Naze Motion to communicate with " +
@@ -623,22 +675,20 @@ private fun AiStep(
             Text("Choose your AI model", style = NazeTypography.section, color = NazeColors.textPrimary)
             Spacer(Modifier.height(8.dp))
             NazeCard(padding = 12.dp) {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                entry.defaultModel ?: "Default model",
-                                style = NazeTypography.body,
-                                color = NazeColors.textPrimary,
-                            )
-                            Text(
-                                "Default model for " + entry.label,
-                                style = NazeTypography.caption,
-                                color = NazeColors.textMuted,
-                            )
-                        }
-                        NazeStatusLabel(label = "Recommended", color = NazeColors.primary, icon = Icons.Rounded.Check)
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            entry.defaultModel ?: "Default model",
+                            style = NazeTypography.body,
+                            color = NazeColors.textPrimary,
+                        )
+                        Text(
+                            "Default model for " + entry.label,
+                            style = NazeTypography.caption,
+                            color = NazeColors.textMuted,
+                        )
                     }
+                    NazeStatusLabel(label = "Recommended", color = NazeColors.primary, icon = Icons.Rounded.Check)
                 }
             }
             HelpExpander(
@@ -694,6 +744,7 @@ private fun TestStep(
     testStage: Int,
     testOk: Boolean,
     testFailure: TestFailure?,
+    onStageChange: (Int) -> Unit,
     onTest: () -> Unit,
     onContinue: () -> Unit,
     onChooseModel: () -> Unit,
@@ -728,11 +779,12 @@ private fun TestStep(
                     NazeStatusLabel(label = msg, color = NazeColors.primary, icon = Icons.Rounded.Bolt)
                 }
             }
+            // A short, bounded pulse so the progress message feels alive
+            // while the real test runs in the background. No infinite loop.
             LaunchedEffect(testing) {
-                while (true) {
+                for (s in 1..2) {
                     delay(700)
-                    // Stage advances via recomposition of testStage by the
-                    // caller; here we simply keep the pulse alive.
+                    onStageChange(s)
                 }
             }
         } else if (testOk) {
@@ -791,16 +843,12 @@ private fun ReadyStep(
 ) {
     Column {
         Text("You're ready", style = NazeTypography.pageTitle, color = NazeColors.textPrimary)
-        Spacer(Modifier.height(16.dp))
-        ReadyRow(ok = accessOk, label = "Device access")
-        Spacer(Modifier.height(6.dp))
-        ReadyRow(ok = overlayOk, label = "Floating Agent")
-        Spacer(Modifier.height(6.dp))
-        ReadyRow(ok = isLocal || testOk, label = if (isLocal) "On-device templates" else "AI connection")
-        Spacer(Modifier.height(6.dp))
-        ReadyRow(ok = true, label = if (isLocal) "No model needed" else "Model selected")
-        Spacer(Modifier.height(24.dp))
-        Text("Naze Motion is ready.", style = NazeTypography.section, color = NazeColors.textPrimary)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Naze Motion is ready.",
+            style = NazeTypography.section,
+            color = NazeColors.textPrimary,
+        )
         Spacer(Modifier.height(4.dp))
         Text(
             "You can now give Naze Motion your first automation instruction.",
@@ -808,6 +856,18 @@ private fun ReadyStep(
             color = NazeColors.textSecondary,
         )
         Spacer(Modifier.height(20.dp))
+        ReadyCheck(label = "Device access", done = accessOk)
+        Spacer(Modifier.height(6.dp))
+        ReadyCheck(label = "Floating Agent", done = overlayOk)
+        Spacer(Modifier.height(6.dp))
+        if (isLocal) {
+            ReadyCheck(label = "On-device templates", done = true)
+        } else {
+            ReadyCheck(label = "AI connection", done = testOk)
+        }
+        Spacer(Modifier.height(6.dp))
+        ReadyCheck(label = "Model selected", done = true)
+        Spacer(Modifier.height(28.dp))
         NazeButton(
             text = "Start using Naze Motion",
             onClick = onFinished,
@@ -815,33 +875,30 @@ private fun ReadyStep(
             leadingIcon = Icons.Rounded.PlayArrow,
             modifier = Modifier.fillMaxWidth(),
         )
-        TextButton(onClick = onFinished, modifier = Modifier.fillMaxWidth()) {
-            Text("View quick tutorial", color = NazeColors.primary)
-        }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Beginner Mode is on. Technical options stay available under " +
-                "Settings, inside Advanced settings.",
-            style = NazeTypography.caption,
-            color = NazeColors.textMuted,
-        )
     }
 }
 
 @Composable
-private fun ReadyRow(ok: Boolean, label: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+private fun ReadyCheck(label: String, done: Boolean) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = label + if (done) ", completed" else ", not set up" },
+    ) {
         Icon(
-            if (ok) Icons.Rounded.Check else Icons.Rounded.ErrorOutline,
-            contentDescription = if (ok) "Done" else "Not ready",
-            tint = if (ok) NazeColors.success else NazeColors.warning,
+            if (done) Icons.Rounded.Check else Icons.Rounded.ErrorOutline,
+            contentDescription = null,
+            tint = if (done) NazeColors.success else NazeColors.textMuted,
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(10.dp))
+        Text(label, style = NazeTypography.body, color = NazeColors.textPrimary)
+        Spacer(Modifier.width(8.dp))
         Text(
-            if (ok) label else label + " (not finished)",
-            style = NazeTypography.body,
-            color = if (ok) NazeColors.textPrimary else NazeColors.textMuted,
+            if (done) "Done" else "Not set up yet",
+            style = NazeTypography.caption,
+            color = NazeColors.textMuted,
         )
     }
 }
