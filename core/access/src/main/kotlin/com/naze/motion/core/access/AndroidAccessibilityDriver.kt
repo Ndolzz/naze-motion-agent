@@ -86,12 +86,37 @@ class AndroidAccessibilityDriver : AutomationDriver {
                 t != null && t.toString() == text
             }
             normalized != null -> { node ->
-                val t = node.text
-                t != null && t.toString().trim().lowercase().contains(normalized.trim().lowercase())
+                // Match either the visible label or the accessibility label:
+                // icon-only buttons (for example the Alight Motion "+"
+                // new project button) expose their name only through
+                // contentDescription, never through text.
+                val needle = normalized.trim().lowercase()
+                val t = node.text?.toString()?.trim()?.lowercase()
+                val d = node.contentDescription?.toString()?.trim()?.lowercase()
+                (t != null && t.contains(needle)) || (d != null && d.contains(needle))
             }
             else -> { _ -> false }
         }
-        collected.firstOrNull(match)?.let { NodeHandleImpl(it) }
+        val matched = collected.firstOrNull(match) ?: return@withContext null
+        NodeHandleImpl(clickableTargetFor(matched))
+    }
+
+    /**
+     * Icon-only buttons expose only a non clickable label or description
+     * node; the click handler lives on an ancestor container. Climb a
+     * bounded number of parents to the nearest clickable ancestor so tap
+     * style handlers stop rejecting real buttons. Falls back to the node
+     * itself when no clickable ancestor exists.
+     */
+    private fun clickableTargetFor(node: AccessibilityNodeInfo): AccessibilityNodeInfo {
+        var current: AccessibilityNodeInfo? = node
+        var hops = 0
+        while (current != null && hops < MAX_CLICKABLE_CLIMB) {
+            if (current.isClickable) return current
+            current = current.parent
+            hops++
+        }
+        return node
     }
 
     override suspend fun click(node: NodeHandle): Boolean = withContext(Dispatchers.Main) {
@@ -271,5 +296,8 @@ class AndroidAccessibilityDriver : AutomationDriver {
     companion object {
         /** Hard traversal cap so a pathological tree can never hang a read. */
         const val MAX_TRAVERSAL_NODES = 2000
+
+        /** Bounded ancestor climb while looking for the clickable container. */
+        const val MAX_CLICKABLE_CLIMB = 6
     }
 }

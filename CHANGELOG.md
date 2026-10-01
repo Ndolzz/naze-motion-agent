@@ -1,3 +1,13 @@
+## 0.26.5
+
+- Target resolution is now robust against icon-only and container-wrapped
+  buttons, which is why CREATE_PROJECT kept failing on the Alight Motion
+  projects screen. Normalized text queries now also match
+  contentDescription (icon-only buttons such as "+" expose their name only
+  there), and a matched non clickable label node now climbs to its nearest
+  clickable ancestor container before it is returned to the handler.
+- versionCode 25.
+
 ## 0.26.4
 
 - Android 11+ package visibility: declared `<queries>` for Alight Motion
