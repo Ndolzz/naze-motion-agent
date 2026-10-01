@@ -1,3 +1,13 @@
+## 0.27.5
+
+PART 1 back-handling completion.
+
+- Android Back on the execution screen now returns to the workspace
+  (runtime.closeExecution()) instead of exiting the app outright.
+  Back priority: open menu -> About dialog -> run detail -> execution
+  screen -> default Android exit. No functional changes.
+- versionCode 30.
+
 ## 0.27.0
 
 PART 1 — UI foundation, branding & navigation.
@@ -35,7 +45,8 @@ PART 1 — UI foundation, branding & navigation.
 
 - Screen aware planning (Phase 28): before the planner runs, the agent
   reads the live accessibility tree of the launched target app and passes
-  the visible labels and accessibility descriptions to the planner as an
+  the visible labels and accessibility d
+escriptions to the planner as an
   observation. The planner prompt now instructs the model to pick target
   labels from that observation, which fixes CREATE_PROJECT and friends on
   devices whose Alight Motion / CapCut UI is not in English (an Indonesian
@@ -76,7 +87,8 @@ PART 1 — UI foundation, branding & navigation.
   contentDescription (icon-only buttons such as "+" expose their name only
   there), and a matched non clickable label node now climbs to its nearest
   clickable ancestor container before it is returned to the handler.
-- versionCode 25.
+-
+ versionCode 25.
 
 ## 0.26.4
 
@@ -103,7 +115,8 @@ PART 1 — UI foundation, branding & navigation.
 ### Changed
 - app version 0.26.2.
 
-package com.naze.motion.app.agentimport android.content.Contextimport android.content.Intentimport com.naze.motion.app.ui.components.TimelineItemStateimport com.naze.motion.app.ui.model.AgentUiStateimport com.naze.motion.core.access.AccessibilityConnectionimport com.naze.motion.core.access.AccessibilityTargetResolverimport com.naze.motion.core.access.AndroidAccessibilityDriverimport com.naze.motion.core.action.AutomationDriverimport com.naze.motion.core.adapter.AlightMotionAdapterimport com.naze.motion.core.adapter.CapCutAdapterimport com.naze.motion.core.adapter.TargetAdapterRegistryimport com.naze.motion.core.adapter.TargetApplicationAdapterimport com.naze.motion.core.adapter.TargetAuditorimport com.naze.motion.core.adapter.VocabularyAuditEntryimport com.naze.motion.core.agent.AgentResultimport com.naze.motion.core.agent.MotionAgentimport com.naze.motion.core.ai.AiPlannerimport com.naze.motion.core.domain.Actionimport com.naze.motion.core.domain.ActionPlanimport com.naze.motion.core.domain.AgentCancellationTokenimport com.naze.motion.core.engine.ExecutionEngineimport kotlinx.coroutines.CoroutineScopeimport kotlinx.coroutines.Dispatchersimport kotlinx.coroutines.Jobimport kotlinx.coroutines.SupervisorJobimport kotlinx.coroutines.cancelimport kotlinx.coroutines.delayimport kotlinx.coroutines.flow.MutableStateFlowimport kotlinx.coroutines.flow.collectLatestimport kotlinx.coroutines.launch
+package com.naze.motion.app.agentimport android.content.Contextimport android.content.Intentimport com.naze.motion.app.ui.components.TimelineItemStateimport com.naze.motion.app.ui.model.AgentUiStateimport com.naze.motion.core.access.AccessibilityConnectionimport com.naze.motion
+.core.access.AccessibilityTargetResolverimport com.naze.motion.core.access.AndroidAccessibilityDriverimport com.naze.motion.core.action.AutomationDriverimport com.naze.motion.core.adapter.AlightMotionAdapterimport com.naze.motion.core.adapter.CapCutAdapterimport com.naze.motion.core.adapter.TargetAdapterRegistryimport com.naze.motion.core.adapter.TargetApplicationAdapterimport com.naze.motion.core.adapter.TargetAuditorimport com.naze.motion.core.adapter.VocabularyAuditEntryimport com.naze.motion.core.agent.AgentResultimport com.naze.motion.core.agent.MotionAgentimport com.naze.motion.core.ai.AiPlannerimport com.naze.motion.core.domain.Actionimport com.naze.motion.core.domain.ActionPlanimport com.naze.motion.core.domain.AgentCancellationTokenimport com.naze.motion.core.engine.ExecutionEngineimport kotlinx.coroutines.CoroutineScopeimport kotlinx.coroutines.Dispatchersimport kotlinx.coroutines.Jobimport kotlinx.coroutines.SupervisorJobimport kotlinx.coroutines.cancelimport kotlinx.coroutines.delayimport kotlinx.coroutines.flow.MutableStateFlowimport kotlinx.coroutines.flow.collectLatestimport kotlinx.coroutines.launch
 /**
  * AgentRuntime (Phase 11 to 26): the real wiring between the UI and the
  * core pipeline. The dashboard starts a real run through MotionAgent over
@@ -116,7 +129,8 @@ package com.naze.motion.app.agentimport android.content.Contextimport android.co
  * the structured engine log (Phase 14). Phase 19 adds a preflight check
  * before every run (service connected, target installed), and Phase 20
  * auto launches the target app so the run always starts on a ready
- * screen. Phase 22 applies the configurable safety profile (action
+ * screen. Phase 22 applies the configurable safety profile
+ (action
  * timeout cap, retry cap, recovery bounds) from Settings to every run.
  * Phase 24 resolves the target application through TargetAdapterRegistry
  * and watches the accessibility connection during a run: when the link
@@ -152,7 +166,8 @@ class AgentRuntime(context: Context) {
     val taskName = MutableStateFlow("")
     val logLines = MutableStateFlow<List<Pair<String, String>>>(emptyList())
     val planSteps = MutableStateFlow<List<Pair<String, TimelineItemState>>>(emptyList())
-    val history = MutableStateFlow<List<AgentRunUi>>(emptyList())
+    val history 
+= MutableStateFlow<List<AgentRunUi>>(emptyList())
     val preflightError = MutableStateFlow<String?>(null)
     val reconnectOffer = MutableStateFlow<String?>(null)
 
@@ -203,7 +218,8 @@ class AgentRuntime(context: Context) {
      * nothing worth saving.
      */
     fun saveWorkflowFromRun(id: Long): Boolean {
-        val run = history.value.firstOrNull { it.id == id } ?: return false
+   
+     val run = history.value.firstOrNull { it.id == id } ?: return false
         val clean = run.instruction.trim()
         if (clean.isEmpty()) return false
         scope.launch {
@@ -255,7 +271,8 @@ class AgentRuntime(context: Context) {
                 "Enable it in system accessibility settings, then try again."
             return
         }
-        val target = selectedTarget.value
+        val target = selected
+Target.value
         val targetLabel = TargetAdapterRegistry.displayNameFor(target)
         val targetInstalled = runCatching {
             appContext.packageManager.getPackageInfo(target, 0)
@@ -304,7 +321,8 @@ class AgentRuntime(context: Context) {
         if (clean.isEmpty()) return
         // Phase 26: the run drives the selected target application, not a
         // hardcoded package. The selection is validated by the store and
-        // the registry, so preflight and launch follow it safely.
+        // the registry, so preflight 
+and launch follow it safely.
         val target = selectedTarget.value
         // Phase 19: refuse the run early instead of failing halfway
         // through execution when the environment is not ready.
@@ -352,7 +370,8 @@ class AgentRuntime(context: Context) {
             val driver = AndroidAccessibilityDriver()
             val adapter = adapterFor(target, driver)
             if (adapter == null) {
-                executionActive.value = false
+                executionActive.value = fa
+lse
                 runLive = false
                 monitorJob?.cancel()
                 monitorJob = null
@@ -394,7 +413,8 @@ class AgentRuntime(context: Context) {
             runLive = false
             monitorJob?.cancel()
             monitorJob = null
-            statusConnected.value = AccessibilityConnection.connected
+       
+     statusConnected.value = AccessibilityConnection.connected
             // Phase 24: when the accessibility link dropped mid-run and
             // the service is connected again, keep the instruction and
             // tell the user the run can be retried with one tap.
@@ -436,7 +456,8 @@ class AgentRuntime(context: Context) {
         }
         val targetLabel = TargetAdapterRegistry.displayNameFor(target)
         val targetInstalled = runCatching {
-            appContext.packageManager.getPackageInfo(target, 0)
+            appContext.pac
+kageManager.getPackageInfo(target, 0)
         }.isSuccess
         if (!targetInstalled) {
             return targetLabel + " is not installed on this device, " +
@@ -496,7 +517,8 @@ class AgentRuntime(context: Context) {
     }
 
     /** Short human readable label for one planned action. */
-    private fun describe(action: Action): String {
+    private fun descr
+ibe(action: Action): String {
         val target = action.target
         val detail = when {
             target?.normalizedText != null -> " " + target.normalizedText
@@ -544,7 +566,8 @@ class AgentRuntime(context: Context) {
             is AgentResult.Cancelled -> {
                 uiState.value = AgentUiState.Cancelled
                 outcome = "Cancelled"
-                reason = result.summary.error?.message
+     
+           reason = result.summary.error?.message
                 actionCount = result.summary.completedActionIds.size
                 completedCount = result.summary.completedActionIds.size
                 durationMs = result.summary.durationMs
@@ -593,7 +616,8 @@ class AgentRuntime(context: Context) {
         )
     }
 
-    /** Emergency Stop (NMA-SEC-008/009): cancel the run but keep the console open. */
+    /** Emergency Stop (NMA-SEC-008/009): cancel the run but keep the
+ console open. */
     fun stop() {
         token?.cancel()
     }
@@ -654,7 +678,8 @@ class AgentRuntime(context: Context) {
 
     companion object {
         private const val CONNECTION_POLL_MS = 500L
-        /** Give the launched target a moment to settle before auditing. */
+        /** Give the launched target a moment to settle before auditing. 
+*/
         private const val AUDIT_SETTLE_MS = 1_500L
     }
 }
